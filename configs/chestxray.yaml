@@ -1,0 +1,21 @@
+# YOLOv7 Dataset Configuration for ChestXray8
+train: datasets/chestxray8/train/images
+val: datasets/chestxray8/val/images
+
+nc: 14
+
+names:
+  - Atelectasis
+  - Cardiomegaly
+  - Effusion
+  - Infiltration
+  - Mass
+  - Nodule
+  - Pneumonia
+  - Pneumothorax
+  - Consolidation
+  - Edema
+  - Emphysema
+  - Fibrosis
+  - Pleural_Thickening
+  - Hernia

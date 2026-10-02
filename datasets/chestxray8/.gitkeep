@@ -1,0 +1,5 @@
+# Dataset directory structure:
+# datasets/chestxray8/train/images
+# datasets/chestxray8/train/labels
+# datasets/chestxray8/val/images
+# datasets/chestxray8/val/labels

@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.ipynb_checkpoints/
+.env
+.venv
+env/
+venv/
+
+# Datasets (large image files and annotations)
+datasets/chestxray8/train/images/*
+datasets/chestxray8/train/labels/*
+datasets/chestxray8/val/images/*
+datasets/chestxray8/val/labels/*
+!datasets/**/.gitkeep
+
+# Weights and Checkpoints (archived to Google Drive and GitHub Releases)
+checkpoints/*.pt
+!checkpoints/.gitkeep
+runs/
+
+# Reports and temporary outputs
+reports/*.png
+reports/*.csv
+!reports/.gitkeep
+releases/*.zip
+!releases/.gitkeep
+
+# Kaggle / Secrets
+kaggle.json
+*.tar.gz
+*.zip
