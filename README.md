@@ -3,6 +3,7 @@
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![YOLOv7](https://img.shields.io/badge/Model-YOLOv7-orange.svg)](https://github.com/WongKinYiu/yolov7)
 [![Dataset](https://img.shields.io/badge/Dataset-ChestXray8-green.svg)](https://www.kaggle.com/datasets/spritan1/yolo-annotated-chestxray-8-object-detection/data)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/wupinlai/YOLO_ChestXray/blob/main/notebooks/YOLO_ChestXray_Colab_Training.ipynb)
 [![GitHub Release](https://img.shields.io/github/v/release/wupinlai/YOLO_ChestXray?include_prereleases&style=flat)](https://github.com/wupinlai/YOLO_ChestXray/releases)
 
 ---
