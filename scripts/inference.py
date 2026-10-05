@@ -1,9 +1,9 @@
 """
-YOLO_ChestXray Inference & Sample Verification Runner (Plan 1 Compliant)
+YOLO_ChestXray Multi-Sample Inference Runner (Plan 1-2 Compliant)
 Handles:
-1. Pre-training random sample selection from validation set -> reports/final_inference/sample_image.jpg
-2. Post-training inference execution with best_model.pt -> reports/final_inference/inference_result.jpg
-3. Automatic IoU evaluation against ground truth labels and rich visualization (Box, Class, Conf, IoU)
+1. Pre-training 10 random validation sample selections -> reports/final_inference/sample_01.jpg ~ sample_10.jpg
+2. Post-training inference execution with best_model.pt -> reports/final_inference/result_01.jpg ~ result_10.jpg
+3. Automatic IoU evaluation against ground truth labels and visual overlay (Box, Class, Conf, IoU)
 """
 
 import argparse
@@ -19,16 +19,17 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 def parse_opt():
-    parser = argparse.ArgumentParser(description="YOLO_ChestXray Inference Runner")
-    parser.add_argument("--action", type=str, choices=["sample", "infer", "full_val_eval"], default="infer",
-                        help="Action to perform: 'sample' (save baseline random sample), 'infer' (run inference on sample), or 'full_val_eval'")
+    parser = argparse.ArgumentParser(description="YOLO_ChestXray Inference Runner (Plan 1-2)")
+    parser.add_argument("--action", type=str, choices=["sample", "infer"], default="infer",
+                        help="Action: 'sample' (10 random baseline samples) or 'infer' (run inference on 10 samples)")
     parser.add_argument("--weights", type=str, default="checkpoints/best_model.pt", help="model.pt path")
     parser.add_argument("--data", type=str, default="configs/chestxray.yaml", help="data config path")
     parser.add_argument("--val-dir", type=str, default="datasets/chestxray8/val/images", help="val images directory")
-    parser.add_argument("--sample-output-dir", type=str, default="reports/final_inference", help="output directory")
+    parser.add_argument("--output-dir", type=str, default="reports/final_inference", help="output directory")
     parser.add_argument("--conf-thres", type=float, default=0.25, help="confidence threshold")
     parser.add_argument("--iou-thres", type=float, default=0.45, help="NMS IoU threshold")
     parser.add_argument("--device", default="", help="cuda device or cpu")
+    parser.add_argument("--num-samples", type=int, default=10, help="number of sample images")
     return parser.parse_args()
 
 
@@ -40,24 +41,32 @@ def load_classes_from_yaml(yaml_path: str) -> List[str]:
     return []
 
 
-def select_random_sample(val_dir: str, output_dir: str) -> Optional[str]:
-    """Select a random image from validation dataset and copy to sample_image.jpg."""
+def select_10_random_samples(val_dir: str, output_dir: str, num_samples: int = 10) -> List[str]:
+    """Select 10 random images from validation dataset and save as sample_01.jpg ~ sample_10.jpg."""
     os.makedirs(output_dir, exist_ok=True)
-    images = list(Path(val_dir).glob("*.jpg")) + list(Path(val_dir).glob("*.png"))
+    images = sorted(list(Path(val_dir).glob("*.jpg")) + list(Path(val_dir).glob("*.png")))
     if not images:
         print(f"[WARN] No validation images found in {val_dir}")
-        return None
+        return []
 
-    selected = random.choice(images)
-    target_sample_path = Path(output_dir) / "sample_image.jpg"
-    shutil.copy(selected, target_sample_path)
-    
-    # Also save the source filename reference
-    with open(Path(output_dir) / "sample_metadata.txt", "w") as f:
-        f.write(str(selected.resolve()))
-        
-    print(f"[SUCCESS] Selected baseline validation sample: {selected.name} -> {target_sample_path}")
-    return str(target_sample_path)
+    # Use fixed seed for reproducibility
+    random.seed(42)
+    selected = random.sample(images, min(num_samples, len(images)))
+    sample_paths = []
+
+    metadata_lines = []
+    for idx, img_p in enumerate(selected):
+        target_name = f"sample_{idx+1:02d}.jpg"
+        target_path = Path(output_dir) / target_name
+        shutil.copy(img_p, target_path)
+        sample_paths.append(str(target_path))
+        metadata_lines.append(f"{target_name}\t{img_p.name}\t{img_p.resolve()}")
+
+    with open(Path(output_dir) / "sample_manifest.tsv", "w") as f:
+        f.write("\n".join(metadata_lines))
+
+    print(f"[SUCCESS] Selected {len(selected)} baseline validation samples: sample_01.jpg ~ sample_{len(selected):02d}.jpg")
+    return sample_paths
 
 
 def read_yolo_labels(label_path: str, img_w: int, img_h: int, class_names: List[str]):
@@ -96,99 +105,114 @@ def bbox_iou(box1, box2):
     return inter / union if union > 0 else 0.0
 
 
-def run_sample_inference(weights: str, sample_img_path: str, data_yaml: str, output_dir: str):
-    """Run model detection on the selected sample and plot Box, Class, Conf, IoU."""
+def run_multi_sample_inference(weights: str, data_yaml: str, output_dir: str, num_samples: int = 10):
+    """Run model detection on sample_01.jpg ~ sample_10.jpg and generate result_01.jpg ~ result_10.jpg."""
     os.makedirs(output_dir, exist_ok=True)
     class_names = load_classes_from_yaml(data_yaml)
 
-    # Look for matching ground truth label
-    sample_file = Path(sample_img_path)
-    # Check corresponding label directory if dataset structure is standard
-    label_path = sample_file.parents[1] / "labels" / f"{sample_file.stem}.txt"
-    
-    # Execute YOLOv7 detect.py
-    detect_out_dir = Path("runs/detect/sample_inference")
+    # Read manifest if available
+    manifest_path = Path(output_dir) / "sample_manifest.tsv"
+    original_map = {}
+    if manifest_path.exists():
+        with open(manifest_path, 'r') as f:
+            for line in f:
+                parts = line.strip().split("\t")
+                if len(parts) >= 3:
+                    original_map[parts[0]] = parts[2]
+
+    # Run detection on all samples in output_dir
+    detect_out_dir = Path("runs/detect/plan1_samples")
     shutil.rmtree(detect_out_dir, ignore_errors=True)
 
     cmd = (
         f"{sys.executable} detect.py "
         f"--weights {weights} "
-        f"--source {sample_img_path} "
+        f"--source {output_dir} "
         f"--save-txt --save-conf "
-        f"--project runs/detect --name sample_inference"
+        f"--project runs/detect --name plan1_samples"
     )
-    print(f"[EXEC] Running detection: {cmd}")
+    print(f"[EXEC] Running multi-sample detection: {cmd}")
     os.system(cmd)
 
-    # Load image to draw high-definition Plan 1 visual overlay
-    img = Image.open(sample_img_path).convert("RGBA")
-    draw = ImageDraw.Draw(img)
-    img_w, img_h = img.size
-    
     try:
         font = ImageFont.truetype("arial.ttf", 16)
     except Exception:
         font = ImageFont.load_default()
 
-    gt_boxes = read_yolo_labels(str(label_path), img_w, img_h, class_names)
-    
-    # Read predicted txt from runs/detect/sample_inference/labels/
-    pred_label_txt = detect_out_dir / "labels" / f"{sample_file.stem}.txt"
-    preds = []
-    if pred_label_txt.exists():
-        with open(pred_label_txt, 'r') as f:
-            for line in f:
-                parts = line.strip().split()
-                if len(parts) >= 6:
-                    cls_id = int(parts[0])
-                    xc, yc, w, h, conf = map(float, parts[1:6])
-                    x1 = (xc - w / 2) * img_w
-                    y1 = (yc - h / 2) * img_h
-                    x2 = (xc + w / 2) * img_w
-                    y2 = (yc + h / 2) * img_h
-                    cls_name = class_names[cls_id] if cls_id < len(class_names) else str(cls_id)
-                    preds.append({
-                        'class_id': cls_id,
-                        'class_name': cls_name,
-                        'bbox': [x1, y1, x2, y2],
-                        'confidence': conf
-                    })
+    for idx in range(1, num_samples + 1):
+        sample_filename = f"sample_{idx:02d}.jpg"
+        sample_path = Path(output_dir) / sample_filename
+        if not sample_path.exists():
+            continue
 
-    # Draw Ground Truths (Green)
-    for gt in gt_boxes:
-        draw.rectangle(gt['bbox'], outline="#00FF00", width=3)
-        draw.text((gt['bbox'][0], max(0, gt['bbox'][1] - 20)), f"GT: {gt['class_name']}", fill="#00FF00", font=font)
+        img = Image.open(sample_path).convert("RGBA")
+        draw = ImageDraw.Draw(img)
+        img_w, img_h = img.size
 
-    # Match and Draw Predictions (Cyan or Blue) with IoU & Conf
-    for p in preds:
-        best_iou = 0.0
+        # Find GT label
+        orig_img_path = original_map.get(sample_filename, "")
+        gt_boxes = []
+        if orig_img_path:
+            orig_p = Path(orig_img_path)
+            orig_lbl = orig_p.parents[1] / "labels" / f"{orig_p.stem}.txt"
+            gt_boxes = read_yolo_labels(str(orig_lbl), img_w, img_h, class_names)
+
+        # Draw GTs (Green)
         for gt in gt_boxes:
-            iou = bbox_iou(p['bbox'], gt['bbox'])
-            if iou > best_iou:
-                best_iou = iou
+            draw.rectangle(gt['bbox'], outline="#00FF00", width=3)
+            draw.text((gt['bbox'][0], max(0, gt['bbox'][1] - 20)), f"GT: {gt['class_name']}", fill="#00FF00", font=font)
 
-        pred_color = "#00FFFF" if best_iou >= 0.5 else "#0080FF"
-        draw.rectangle(p['bbox'], outline=pred_color, width=3)
-        tag = f"{p['class_name']} | Conf: {p['confidence']:.2f} | IoU: {best_iou:.2f}"
-        tag_y = max(0, int(p['bbox'][1]) - 22)
-        draw.rectangle([p['bbox'][0], tag_y, p['bbox'][0] + 260, tag_y + 22], fill=pred_color)
-        draw.text((p['bbox'][0] + 5, tag_y + 2), tag, fill=(0, 0, 0), font=font)
+        # Read predictions
+        pred_label_txt = detect_out_dir / "labels" / f"sample_{idx:02d}.txt"
+        preds = []
+        if pred_label_txt.exists():
+            with open(pred_label_txt, 'r') as f:
+                for line in f:
+                    parts = line.strip().split()
+                    if len(parts) >= 6:
+                        cls_id = int(parts[0])
+                        xc, yc, w, h, conf = map(float, parts[1:6])
+                        x1 = (xc - w / 2) * img_w
+                        y1 = (yc - h / 2) * img_h
+                        x2 = (xc + w / 2) * img_w
+                        y2 = (yc + h / 2) * img_h
+                        cls_name = class_names[cls_id] if cls_id < len(class_names) else str(cls_id)
+                        preds.append({
+                            'class_id': cls_id,
+                            'class_name': cls_name,
+                            'bbox': [x1, y1, x2, y2],
+                            'confidence': conf
+                        })
 
-    out_file = Path(output_dir) / "inference_result.jpg"
-    img.convert("RGB").save(out_file, "JPEG", quality=95)
-    print(f"[SUCCESS] Final Inference verification image generated at: {out_file}")
+        # Match and draw predictions with Conf and IoU
+        for p in preds:
+            best_iou = 0.0
+            for gt in gt_boxes:
+                iou = bbox_iou(p['bbox'], gt['bbox'])
+                if iou > best_iou:
+                    best_iou = iou
+
+            pred_color = "#00FFFF" if best_iou >= 0.5 else "#0080FF"
+            draw.rectangle(p['bbox'], outline=pred_color, width=3)
+            tag = f"{p['class_name']} | Conf: {p['confidence']:.2f} | IoU: {best_iou:.2f}"
+            tag_y = max(0, int(p['bbox'][1]) - 22)
+            draw.rectangle([p['bbox'][0], tag_y, p['bbox'][0] + 280, tag_y + 22], fill=pred_color)
+            draw.text((p['bbox'][0] + 5, tag_y + 2), tag, fill=(0, 0, 0), font=font)
+
+        out_res = Path(output_dir) / f"result_{idx:02d}.jpg"
+        img.convert("RGB").save(out_res, "JPEG", quality=95)
+        print(f"[SUCCESS] Saved inference verification: {out_res}")
 
 
 def main():
     opt = parse_opt()
     if opt.action == "sample":
-        select_random_sample(opt.val_dir, opt.sample_output_dir)
+        select_10_random_samples(opt.val_dir, opt.output_dir, opt.num_samples)
     elif opt.action == "infer":
-        sample_img = Path(opt.sample_output_dir) / "sample_image.jpg"
-        if not sample_img.exists():
-            print(f"[INFO] sample_image.jpg does not exist. Selecting one now...")
-            select_random_sample(opt.val_dir, opt.sample_output_dir)
-        run_sample_inference(opt.weights, str(sample_img), opt.data, opt.sample_output_dir)
+        # If samples not yet present, select them
+        if not (Path(opt.output_dir) / "sample_01.jpg").exists():
+            select_10_random_samples(opt.val_dir, opt.output_dir, opt.num_samples)
+        run_multi_sample_inference(opt.weights, opt.data, opt.output_dir, opt.num_samples)
 
 
 if __name__ == "__main__":

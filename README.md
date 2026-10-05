@@ -62,7 +62,9 @@ YOLO_ChestXray/
 ├── checkpoints/              # Stored model weights (checkpoint_xx.pt, best_model.pt)
 ├── reports/                  # Validation reports, metric history, error gallery, final_report.pdf
 ├── releases/                 # Packaged release archives & artifacts
-├── Plan1.md                  # Comprehensive AI Training, Validation, Inference & Error Analysis Spec
+├── Plan1-2.md                # AI Training, Validation, Diagnostics & Master 16-Page Report Spec
+├── Plan1.md                  # Comprehensive AI Training, Validation & Error Analysis Spec
+
 ├── version control.md        # Model & release version control protocol
 └── README.md                 # Project documentation
 ```
