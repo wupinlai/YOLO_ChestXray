@@ -12,10 +12,12 @@
 
 **YOLO_ChestXray** applies the state-of-the-art **YOLOv7** object detection architecture to detect and localize multiple thoracic pathologies on chest radiographs (CXR). Utilizing the annotated ChestXray8 dataset with bounding-box annotations across 14 distinct disease classes, this repository provides an end-to-end pipeline covering:
 
-- 📊 **Dataset Preparation & Verification**
-- 🚀 **Stage-wise Resumable Training** (optimized for Google Colab GPU sessions)
-- 📈 **Comprehensive Validation & Metrics Tracking** (mAP@0.5, mAP@0.5:0.95, Confusion Matrix, PR/F1 Curves)
-- 🔍 **Inference & Pathology Localization**
+- 📊 **Dataset Preparation & Verification** (Kaggle API integration & integrity checks)
+- 🚀 **Stage-wise Resumable Training** (5 stages, 10 epochs/stage, total 50 epochs)
+- 📈 **Comprehensive Validation & Metrics Tracking** (`metrics_history.csv`, PR/F1 Curves, Confusion Matrix)
+- 🧪 **Standardized Error & IoU Analysis** (Automated annotation of FP, FN, MC, Low IoU with color standards & legends)
+- 🖼️ **Error Galleries & Visualizations** (2x2 Grid layouts, worst IoU cases, top detections)
+- 📄 **Automated 10+ Page PDF Final Report** (`reports/final_report.pdf`, 300 DPI)
 - 🏷️ **Checkpoint & Model Version Control** via GitHub Releases & Cloud Storage
 
 ---
@@ -48,21 +50,19 @@ YOLO_ChestXray/
 │   └── chestxray.yaml        # Dataset configuration & class definitions
 ├── datasets/
 │   └── chestxray8/           # Dataset root (Train / Val image & label splits)
-│       ├── train/
-│       │   ├── images/
-│       │   └── labels/
-│       └── val/
-│           ├── images/
-│           └── labels/
 ├── notebooks/                # Jupyter / Google Colab training notebooks
-├── scripts/                  # Training, evaluation, and inference scripts
-│   ├── train.py
-│   ├── validate.py
-│   └── inference.py
-├── checkpoints/              # Stored model weights (checkpoint_xx.pt, best.pt)
-├── reports/                  # Validation reports, metric plots, PR curves
+│   └── YOLO_ChestXray_Colab_Training.ipynb
+├── scripts/                  # Training, evaluation, analysis, and report generation
+│   ├── train.py              # Stage-wise training runner
+│   ├── validate.py           # Evaluation runner
+│   ├── inference.py          # Sample verification & IoU overlay runner
+│   ├── analysis.py           # Statistical profiling, IoU & error analysis engine
+│   ├── generate_report.py    # 10+ page final_report.pdf compiler
+│   └── run_plan1_pipeline.py # End-to-end Plan 1 pipeline orchestrator
+├── checkpoints/              # Stored model weights (checkpoint_xx.pt, best_model.pt)
+├── reports/                  # Validation reports, metric history, error gallery, final_report.pdf
 ├── releases/                 # Packaged release archives & artifacts
-├── plan.md                   # Full development roadmap & execution plan
+├── Plan1.md                  # Comprehensive AI Training, Validation, Inference & Error Analysis Spec
 ├── version control.md        # Model & release version control protocol
 └── README.md                 # Project documentation
 ```

@@ -12,3 +12,5 @@ seaborn>=0.11.0
 pandas>=1.1.4
 requests>=2.23.0
 kaggle>=1.5.12
+reportlab>=3.6.0
+

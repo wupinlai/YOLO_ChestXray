@@ -29,5 +29,9 @@ releases/*.zip
 
 # Kaggle / Secrets
 kaggle.json
+kaggle_token.txt
+kaggleapi.md
+secrets/
 *.tar.gz
 *.zip
+
