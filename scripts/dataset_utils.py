@@ -220,8 +220,10 @@ def run_dataset_analysis(
             'Val_Boxes': val_count,
             'Total_Boxes': train_count + val_count
         })
+    # Save summary and plots to both output_dir and reports root
     df_summary = pd.DataFrame(summary_data)
     df_summary.to_csv(os.path.join(output_dir, "dataset_summary.csv"), index=False)
+    df_summary.to_csv(os.path.join("reports", "dataset_summary.csv"), index=False)
 
     # 2. Class Distribution Plot
     if not df_boxes.empty:
@@ -231,6 +233,7 @@ def run_dataset_analysis(
         plt.title("Pathology Annotation Distribution Across Splits", fontsize=14, fontweight='bold')
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, "class_distribution.png"), dpi=300)
+        plt.savefig(os.path.join("reports", "class_distribution.png"), dpi=300)
         plt.close()
 
     # 3. Bounding Box Size Distribution
@@ -242,6 +245,7 @@ def run_dataset_analysis(
         plt.ylabel("Count")
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, "bbox_size_distribution.png"), dpi=300)
+        plt.savefig(os.path.join("reports", "bbox_size_distribution.png"), dpi=300)
         plt.close()
 
     # 4. Image Resolution Distribution
@@ -253,6 +257,8 @@ def run_dataset_analysis(
         plt.ylabel("Height (px)")
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, "image_resolution_distribution.png"), dpi=300)
+        plt.savefig(os.path.join("reports", "image_resolution_distribution.png"), dpi=300)
         plt.close()
 
-    print(f"[SUCCESS] Dataset analysis artifacts saved to {output_dir}")
+    print(f"[SUCCESS] Dataset analysis artifacts saved to {output_dir} and reports/")
+

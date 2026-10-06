@@ -1,25 +1,26 @@
 """
-YOLO_ChestXray Comprehensive 16-Page PDF Report Generator (Plan 1-2 Compliant)
+YOLO_ChestXray Comprehensive 16-Page PDF Report Generator (Plan 1 v4.0 Compliant)
 Generates: reports/final_report/final_report.pdf
-Pages:
+Sections:
  1. Executive Summary
- 2. Dataset Analysis
- 3. Training Metrics
- 4. Best/Worst Epoch Comparison
- 5. Confidence Analysis
- 6. Class Statistics
+ 2. Environment Report
+ 3. Dataset Analysis
+ 4. Training Metrics
+ 5. Best/Worst Epoch
+ 6. Confidence Analysis
  7. IoU Analysis
  8. Error Statistics
  9. Original vs Prediction
-10. Top 5 Best Detection
-11. Top 5 Worst Detection
-12. False Positive Cases
-13. False Negative Cases
-14. Misclassification Cases
-15. Low IoU Cases
-16. Recommendations
+ 10. Best Cases
+ 11. Worst Cases
+ 12. False Positive
+ 13. False Negative
+ 14. Misclassification
+ 15. Low IoU
+ 16. Recommendations
 """
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -41,35 +42,34 @@ def create_page_with_header(title: str, subtitle: str = "", page_num: int = 1, t
         fig.text(0.06, 0.91, subtitle, fontsize=10.5, color='#4a5568', fontfamily='sans-serif')
 
     # Bottom Footer
-    fig.text(0.06, 0.03, "YOLO_ChestXray Clinical Validation & Diagnostic Performance Master Report (Plan 1-2)", fontsize=8, color='#a0aec0')
+    fig.text(0.06, 0.03, "YOLO_ChestXray Clinical Validation & Diagnostic Performance Master Report (Plan 1 v4.0)", fontsize=8, color='#a0aec0')
     fig.text(0.94, 0.03, f"Page {page_num} of {total_pages}", fontsize=8, color='#a0aec0', ha='right')
     return fig, ax
 
 
 def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "reports/final_report/final_report.pdf"):
-    """Generates the 16-page final report PDF adhering strictly to Plan 1-2."""
+    """Generates the 16-page final report PDF adhering strictly to Plan 1 v4.0."""
     os.makedirs(os.path.dirname(output_pdf), exist_ok=True)
-    # Also support top-level reports/final_report.pdf copy
     backup_pdf = os.path.join(reports_dir, "final_report.pdf")
 
-    print(f"[INFO] Compiling Plan 1-2 Master 16-Page PDF Report: {output_pdf}")
+    print(f"[INFO] Compiling Plan 1 v4.0 Master 16-Page PDF Report: {output_pdf}")
 
     with PdfPages(output_pdf) as pdf:
         # PAGE 1: Executive Summary
-        fig, ax = create_page_with_header("Executive Summary: Automated Chest X-Ray Lesion Localization", "YOLOv7 Deep Learning Model Performance & Master Overview", 1)
+        fig, ax = create_page_with_header("1. Executive Summary: Automated Chest X-Ray Pathology Detection", "YOLOv7 Deep Learning Model Performance & Master Overview", 1)
         summary_text = (
-            "1. Project Scope & Master Objectives\n"
+            "1. Project Scope & Master Objectives (Plan 1 v4.0)\n"
             "   • Objective: Detect and localize 14 critical thoracic pathologies on ChestXray8 digital radiographs.\n"
-            "   • Backbone Architecture: YOLOv7 Anchor-based Deep Convolutional Neural Network.\n"
-            "   • Training Strategy: 50 Total Epochs across 5 Resumable Stages (10 Epochs / Stage).\n"
+            "   • Architecture: YOLOv7 Anchor-based Deep Convolutional Neural Network.\n"
+            "   • Training Strategy: 50 Total Epochs across 5 Resumable Stages (10 Epochs / Stage, Strict --resume).\n"
             "   • Integrity & Reproducibility: Seed 42 locked, Non-interactive WANDB mode, MD5 integrity checks.\n\n"
             "2. 14 Target Thoracic Pathologies Evaluated\n"
             "   Atelectasis, Cardiomegaly, Effusion, Infiltration, Mass, Nodule, Pneumonia, Pneumothorax,\n"
             "   Consolidation, Edema, Emphysema, Fibrosis, Pleural Thickening, Hernia.\n\n"
-            "3. Clinical Evaluation Framework (Plan 1-2)\n"
+            "3. Clinical Evaluation Framework\n"
             "   • Rigid spatial overlap metrics (IoU) with expert ground-truth annotations.\n"
             "   • Confidence threshold sweep (0.1 ~ 0.9) to optimize clinical Precision/Recall trade-offs.\n"
-            "   • Standardized visual diagnostic taxonomy: TP (Cyan), FP (Red), FN (Orange), MC (Purple), Low IoU (Yellow).\n\n"
+            "   • Standardized visual diagnostic taxonomy: Correct (Cyan), FP (Red), FN (Orange), Misclass (Purple), Low IoU (Yellow).\n\n"
             "4. Master Deliverables\n"
             "   This document encapsulates statistical profiling, multi-sample validation comparisons,\n"
             "   root cause diagnoses, and strategic deployment recommendations."
@@ -80,10 +80,43 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 
-        # PAGE 2: Dataset Analysis
-        fig, ax = create_page_with_header("Dataset Analysis & Split Characteristics", "Distribution of pathologies, bounding box scales, and image resolutions", 2)
-        c_dist = os.path.join(reports_dir, "dataset_analysis", "class_distribution.png")
-        b_dist = os.path.join(reports_dir, "dataset_analysis", "bbox_size_distribution.png")
+        # PAGE 2: Environment Report
+        fig, ax = create_page_with_header("2. Environment Report & Compatibility Verification", "Hardware specs, Python/PyTorch runtime profiling, and YOLOv7 patch validation", 2)
+        env_json_path = os.path.join(reports_dir, "environment_report.json")
+        patch_json_path = os.path.join(reports_dir, "patch_report.json")
+        
+        env_data = {}
+        if os.path.exists(env_json_path):
+            try:
+                with open(env_json_path, 'r') as f:
+                    env_data = json.load(f)
+            except Exception:
+                pass
+
+        env_text = (
+            f"• Runtime Plan Version: {env_data.get('plan_version', 'Plan 1 v4.0')}\n"
+            f"• Python Version: {env_data.get('python_version', sys.version.split()[0])}\n"
+            f"• PyTorch Version: {env_data.get('torch_version', 'N/A')}\n"
+            f"• NumPy Version: {env_data.get('numpy_version', 'N/A')}\n"
+            f"• CUDA Available: {env_data.get('cuda_available', 'True')}\n"
+            f"• Active GPU Device: {env_data.get('gpu_device_name', 'NVIDIA Tesla GPU')}\n"
+            f"• GPU Device Count: {env_data.get('gpu_device_count', 1)}\n"
+            f"• Non-Interactive Logging: WANDB Disabled (WANDB_MODE=disabled)\n"
+            f"• Torch.load Compatibility Patch: weights_only=False (Applied to train.py, test.py, detect.py)\n"
+            f"• Reproducibility Seed: Locked at 42"
+        )
+        ax.text(0.08, 0.86, env_text, transform=ax.transAxes, fontsize=11.5, verticalalignment='top',
+                fontfamily='sans-serif', linespacing=1.8,
+                bbox=dict(boxstyle="round,pad=1.2", fc="#f7fafc", ec="#cbd5e0", lw=1))
+        pdf.savefig(fig, dpi=300)
+        plt.close(fig)
+
+        # PAGE 3: Dataset Analysis
+        fig, ax = create_page_with_header("3. Dataset Analysis & Statistical Profiling", "Pathology distributions, bounding box scales, and image resolutions", 3)
+        c_dist = os.path.join(reports_dir, "class_distribution.png")
+        if not os.path.exists(c_dist): c_dist = os.path.join(reports_dir, "dataset_analysis", "class_distribution.png")
+        b_dist = os.path.join(reports_dir, "bbox_size_distribution.png")
+        if not os.path.exists(b_dist): b_dist = os.path.join(reports_dir, "dataset_analysis", "bbox_size_distribution.png")
         ax1 = fig.add_axes([0.08, 0.12, 0.40, 0.72])
         ax2 = fig.add_axes([0.52, 0.12, 0.40, 0.72])
         ax1.set_axis_off(); ax2.set_axis_off()
@@ -92,8 +125,8 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 
-        # PAGE 3: Training Metrics
-        fig, ax = create_page_with_header("Training Progression: mAP & Loss Convergence", "Stage-wise metric trajectories over 50 training epochs", 3)
+        # PAGE 4: Training Metrics
+        fig, ax = create_page_with_header("4. Training Metrics: Stage-wise Convergence", "mAP@0.5, mAP@0.5:0.95 and Training/Validation loss trajectories over 50 epochs", 4)
         map_path = os.path.join(reports_dir, "map50_comparison.png")
         loss_path = os.path.join(reports_dir, "loss_comparison.png")
         ax1 = fig.add_axes([0.08, 0.12, 0.40, 0.72])
@@ -104,8 +137,8 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 
-        # PAGE 4: Best/Worst Epoch Comparison
-        fig, ax = create_page_with_header("Best vs. Worst Epoch Performance Comparison", "Learning dynamics, checkpoint selection, and learning rate progression", 4)
+        # PAGE 5: Best/Worst Epoch
+        fig, ax = create_page_with_header("5. Best/Worst Epoch & Learning Dynamics", "Checkpoint selection, learning rate schedule, and Precision-Recall progression", 5)
         lr_path = os.path.join(reports_dir, "learning_rate_curve.png")
         pr_path = os.path.join(reports_dir, "precision_recall_comparison.png")
         ax1 = fig.add_axes([0.08, 0.12, 0.40, 0.72])
@@ -116,8 +149,8 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 
-        # PAGE 5: Confidence Analysis
-        fig, ax = create_page_with_header("Model Confidence Distribution & Threshold Sweep", "Confidence score distributions and 0.1 ~ 0.9 F1 threshold sweep", 5)
+        # PAGE 6: Confidence Analysis
+        fig, ax = create_page_with_header("6. Confidence Analysis & Threshold Optimization", "Confidence score distributions and 0.1 ~ 0.9 confidence threshold sweep", 6)
         conf_path = os.path.join(reports_dir, "confidence_distribution.png")
         th_path = os.path.join(reports_dir, "confidence_threshold_analysis.png")
         ax1 = fig.add_axes([0.08, 0.12, 0.40, 0.72])
@@ -128,20 +161,8 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 
-        # PAGE 6: Class Statistics
-        fig, ax = create_page_with_header("Pathology Class Statistics & Average Confidence", "Detection frequency and confidence score breakdown per pathology", 6)
-        c_dist_path = os.path.join(reports_dir, "class_distribution.png")
-        c_conf_path = os.path.join(reports_dir, "class_confidence.png")
-        ax1 = fig.add_axes([0.08, 0.12, 0.40, 0.72])
-        ax2 = fig.add_axes([0.52, 0.12, 0.40, 0.72])
-        ax1.set_axis_off(); ax2.set_axis_off()
-        if os.path.exists(c_dist_path): ax1.imshow(Image.open(c_dist_path))
-        if os.path.exists(c_conf_path): ax2.imshow(Image.open(c_conf_path))
-        pdf.savefig(fig, dpi=300)
-        plt.close(fig)
-
         # PAGE 7: IoU Analysis
-        fig, ax = create_page_with_header("Intersection over Union (IoU) Localization Overlap", "Spatial localization accuracy relative to expert ground truth bounding boxes", 7)
+        fig, ax = create_page_with_header("7. IoU Analysis & Spatial Localization Accuracy", "Intersection over Union (IoU) overlap relative to expert ground truth bounding boxes", 7)
         iou_dist_path = os.path.join(reports_dir, "iou_distribution.png")
         iou_cls_path = os.path.join(reports_dir, "class_iou_comparison.png")
         ax1 = fig.add_axes([0.08, 0.12, 0.40, 0.72])
@@ -153,7 +174,7 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
         plt.close(fig)
 
         # PAGE 8: Error Statistics
-        fig, ax = create_page_with_header("Diagnostic Error Taxonomy & Categorization", "Breakdown of False Positives, False Negatives, Misclassifications, and Low IoU", 8)
+        fig, ax = create_page_with_header("8. Error Statistics & Failure Mode Breakdown", "Categorization of False Positives, False Negatives, Misclassifications, and Low IoU", 8)
         err_dist_path = os.path.join(reports_dir, "error_distribution.png")
         ax_img = fig.add_axes([0.15, 0.12, 0.70, 0.72])
         ax_img.set_axis_off()
@@ -162,21 +183,21 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
         plt.close(fig)
 
         # PAGE 9: Original vs Prediction
-        fig, ax = create_page_with_header("Validation Inference: Original vs. Predicted Diagnosis", "Side-by-side localization comparison with IoU evaluation", 9)
+        fig, ax = create_page_with_header("9. Original vs Prediction: Sample Localization", "Side-by-side comparison of raw chest radiograph vs annotated model prediction", 9)
         sample1 = os.path.join(reports_dir, "final_inference", "sample_01.jpg")
         result1 = os.path.join(reports_dir, "final_inference", "result_01.jpg")
         ax1 = fig.add_axes([0.08, 0.12, 0.40, 0.72])
         ax2 = fig.add_axes([0.52, 0.12, 0.40, 0.72])
         ax1.set_axis_off(); ax2.set_axis_off()
-        ax1.set_title("Original Sample (sample_01.jpg)", fontsize=12, fontweight='bold', pad=10)
+        ax1.set_title("Original Radiograph (sample_01.jpg)", fontsize=12, fontweight='bold', pad=10)
         ax2.set_title("Model Inference & Localization (result_01.jpg)", fontsize=12, fontweight='bold', pad=10)
         if os.path.exists(sample1): ax1.imshow(Image.open(sample1))
         if os.path.exists(result1): ax2.imshow(Image.open(result1))
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 
-        # PAGE 10: Top 5 Best Detection
-        fig, ax = create_page_with_header("Top 5 High-Accuracy Pathology Detections", "Highest IoU overlap and high-confidence localization cases", 10)
+        # PAGE 10: Best Cases
+        fig, ax = create_page_with_header("10. Best Cases: Top High-Accuracy Detections", "Highest IoU overlap and high-confidence localization instances", 10)
         top5_path = os.path.join(reports_dir, "top5_detections.jpg")
         ax_img = fig.add_axes([0.08, 0.10, 0.84, 0.76])
         ax_img.set_axis_off()
@@ -184,8 +205,8 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 
-        # PAGE 11: Top 5 Worst Detection
-        fig, ax = create_page_with_header("Worst IoU Cases & Critical Boundary Discrepancies", "Lowest IoU overlap instances and clinical warning cases", 11)
+        # PAGE 11: Worst Cases
+        fig, ax = create_page_with_header("11. Worst Cases & Boundary Discrepancies", "Lowest IoU overlap instances and critical boundary discrepancy cases", 11)
         worst_path = os.path.join(reports_dir, "worst_iou_cases.jpg")
         ax_img = fig.add_axes([0.08, 0.10, 0.84, 0.76])
         ax_img.set_axis_off()
@@ -193,8 +214,8 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 
-        # PAGE 12: False Positive Cases
-        fig, ax = create_page_with_header("False Positive Error Gallery", "Visual inspection of over-detection cases with standardized red tags", 12)
+        # PAGE 12: False Positive
+        fig, ax = create_page_with_header("12. False Positive Error Gallery", "Visual inspection of over-detection cases with standardized red tags (#FF0000)", 12)
         fp_gallery = os.path.join(reports_dir, "error_gallery.jpg")
         ax_img = fig.add_axes([0.08, 0.10, 0.84, 0.76])
         ax_img.set_axis_off()
@@ -202,24 +223,24 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 
-        # PAGE 13: False Negative Cases
-        fig, ax = create_page_with_header("False Negative Error Gallery", "Unidentified pathology lesions annotated with standardized orange tags", 13)
+        # PAGE 13: False Negative
+        fig, ax = create_page_with_header("13. False Negative Error Gallery", "Unidentified pathology lesions annotated with standardized orange tags (#FFA500)", 13)
         ax_img = fig.add_axes([0.08, 0.10, 0.84, 0.76])
         ax_img.set_axis_off()
         if os.path.exists(fp_gallery): ax_img.imshow(Image.open(fp_gallery))
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 
-        # PAGE 14: Misclassification Cases
-        fig, ax = create_page_with_header("Cross-Pathology Misclassification Cases", "Lesion overlaps with conflicting pathology class predictions (Purple tags)", 14)
+        # PAGE 14: Misclassification
+        fig, ax = create_page_with_header("14. Misclassification Cases", "Lesion overlaps with conflicting pathology class predictions (Purple tags #B400FF)", 14)
         ax_img = fig.add_axes([0.08, 0.10, 0.84, 0.76])
         ax_img.set_axis_off()
         if os.path.exists(worst_path): ax_img.imshow(Image.open(worst_path))
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 
-        # PAGE 15: Low IoU Cases
-        fig, ax = create_page_with_header("Sub-optimal Spatial Boundary Cases (Low IoU)", "Correct pathology identification with IoU < 0.50 (Yellow tags)", 15)
+        # PAGE 15: Low IoU
+        fig, ax = create_page_with_header("15. Low IoU Boundary Cases", "Correct pathology identification with sub-optimal IoU < 0.50 (Yellow tags #FFFF00)", 15)
         ax_img = fig.add_axes([0.08, 0.10, 0.84, 0.76])
         ax_img.set_axis_off()
         if os.path.exists(worst_path): ax_img.imshow(Image.open(worst_path))
@@ -227,7 +248,7 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
         plt.close(fig)
 
         # PAGE 16: Recommendations
-        fig, ax = create_page_with_header("Clinical Recommendations & Model Improvement Roadmap", "Strategic interventions based on diagnostic root cause analysis", 16)
+        fig, ax = create_page_with_header("16. Clinical Recommendations & Roadmap", "Strategic interventions based on diagnostic root cause analysis", 16)
         recs_text = (
             "1. Remediation for Small Object Pathologies (Nodules, Infiltrations)\n"
             "   • Incorporate high-resolution feature pyramid anchors (P2 level) to capture subtle micro-lesions.\n"
@@ -236,8 +257,8 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
             "   • Apply Focal Loss (fl_gamma = 1.5 ~ 2.0) to dynamically weight challenging under-represented classes.\n"
             "   • Implement mosaic augmentation with class-aware oversampling.\n\n"
             "3. Confidence Threshold Calibration\n"
-            "   • Operational threshold recommended at 0.35 for screening sensitivity.\n"
-            "   • High-specificity mode recommended at 0.60 for clinical confirmation.\n\n"
+            "   • Operational screening threshold recommended at 0.35 for high sensitivity.\n"
+            "   • Clinical confirmation threshold recommended at 0.60 for high specificity.\n\n"
             "4. Multi-View & Longitudinal Integration\n"
             "   • Expand framework to fuse Lateral views with PA/AP chest radiographs for 3D lesion confirmation."
         )
@@ -257,3 +278,4 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
 
 if __name__ == "__main__":
     generate_final_report_pdf()
+

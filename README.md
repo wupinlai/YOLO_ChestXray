@@ -62,10 +62,11 @@ YOLO_ChestXray/
 ├── checkpoints/              # Stored model weights (checkpoint_xx.pt, best_model.pt)
 ├── reports/                  # Validation reports, metric history, error gallery, final_report.pdf
 ├── releases/                 # Packaged release archives & artifacts
+├── Plan1_v4.0.md             # Master Plan v4.0: End-to-End Training, Validation, and Reporting
+├── Plan1_5.md                # Master Plan v2.0 Specification
 ├── Plan1_4.md                # Master Plan v2.0: YOLOv7 Legacy Compatibility & Environment Builder
 ├── Plan1_3.md                # AI Training, Validation & YOLOv7 Environment Fix Specification
 ├── Plan1-2.md                # AI Training, Validation, Diagnostics & Master 16-Page Report Spec
-
 ├── Plan1.md                  # Comprehensive AI Training, Validation & Error Analysis Spec
 
 
