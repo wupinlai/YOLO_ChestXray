@@ -18,8 +18,9 @@ Handles:
 import os
 import glob
 import hashlib
+import shutil
 from pathlib import Path
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -33,15 +34,118 @@ plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Noto Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
 
+def prepare_and_standardize_dataset(dataset_root: str = "datasets/chestxray8") -> Tuple[str, str, str, str]:
+    """
+    Automatically discover, normalize, and standardize any unzipped ChestXray8 dataset structure
+    into standard YOLO format:
+      datasets/chestxray8/train/images
+      datasets/chestxray8/train/labels
+      datasets/chestxray8/val/images
+      datasets/chestxray8/val/labels
+    """
+    root = Path(dataset_root)
+    std_train_img = root / "train" / "images"
+    std_train_lbl = root / "train" / "labels"
+    std_val_img = root / "val" / "images"
+    std_val_lbl = root / "val" / "labels"
+
+    # If already in standard layout and has files, return directly
+    if std_train_img.exists() and any(std_train_img.iterdir()) and std_val_img.exists() and any(std_val_img.iterdir()):
+        print(f"[INFO] Standard YOLO dataset layout confirmed at {dataset_root}")
+        return str(std_train_img), str(std_train_lbl), str(std_val_img), str(std_val_lbl)
+
+    print(f"[INFO] Scanning and auto-standardizing dataset directory structure at {dataset_root}...")
+
+    # Look for layout variants
+    # Variant A: images/train, images/val, labels/train, labels/val
+    var_a_train_img = root / "images" / "train"
+    var_a_val_img = root / "images" / "val"
+    var_a_train_lbl = root / "labels" / "train"
+    var_a_val_lbl = root / "labels" / "val"
+
+    if var_a_train_img.exists() and var_a_val_img.exists():
+        print("[INFO] Detected 'images/train' & 'images/val' layout. Re-routing...")
+        std_train_img.mkdir(parents=True, exist_ok=True)
+        std_train_lbl.mkdir(parents=True, exist_ok=True)
+        std_val_img.mkdir(parents=True, exist_ok=True)
+        std_val_lbl.mkdir(parents=True, exist_ok=True)
+
+        for f in var_a_train_img.glob("*.*"):
+            shutil.move(str(f), str(std_train_img / f.name))
+        for f in var_a_val_img.glob("*.*"):
+            shutil.move(str(f), str(std_val_img / f.name))
+        if var_a_train_lbl.exists():
+            for f in var_a_train_lbl.glob("*.txt"):
+                shutil.move(str(f), str(std_train_lbl / f.name))
+        if var_a_val_lbl.exists():
+            for f in var_a_val_lbl.glob("*.txt"):
+                shutil.move(str(f), str(std_val_lbl / f.name))
+        return str(std_train_img), str(std_train_lbl), str(std_val_img), str(std_val_lbl)
+
+    # Variant B: Nested subdirectories inside dataset_root (e.g. chestxray8/chestxray8/...)
+    subdirs = [d for d in root.iterdir() if d.is_dir()]
+    for sub in subdirs:
+        if (sub / "train").exists() and (sub / "val").exists():
+            print(f"[INFO] Found nested dataset split at {sub}. Moving to root...")
+            for folder in ["train", "val"]:
+                src_folder = sub / folder
+                dst_folder = root / folder
+                if not dst_folder.exists():
+                    shutil.move(str(src_folder), str(dst_folder))
+            return prepare_and_standardize_dataset(dataset_root)
+
+    # Variant C: Recursive search for all jpg/png and txt files
+    all_imgs = list(root.rglob("*.jpg")) + list(root.rglob("*.png")) + list(root.rglob("*.jpeg"))
+    all_lbls = {p.stem: p for p in root.rglob("*.txt") if p.name not in ["classes.txt", "readme.txt"]}
+
+    if all_imgs:
+        print(f"[INFO] Discovered {len(all_imgs)} images and {len(all_lbls)} labels. Partitioning into 80/20 train/val splits...")
+        std_train_img.mkdir(parents=True, exist_ok=True)
+        std_train_lbl.mkdir(parents=True, exist_ok=True)
+        std_val_img.mkdir(parents=True, exist_ok=True)
+        std_val_lbl.mkdir(parents=True, exist_ok=True)
+
+        np.random.seed(42)
+        shuffled = np.random.permutation(all_imgs)
+        split_idx = int(len(shuffled) * 0.8)
+        train_set = shuffled[:split_idx]
+        val_set = shuffled[split_idx:]
+
+        for img_p in train_set:
+            dst_img = std_train_img / img_p.name
+            if img_p.resolve() != dst_img.resolve():
+                shutil.copy(str(img_p), str(dst_img))
+            if img_p.stem in all_lbls:
+                lbl_p = all_lbls[img_p.stem]
+                shutil.copy(str(lbl_p), str(std_train_lbl / f"{img_p.stem}.txt"))
+
+        for img_p in val_set:
+            dst_img = std_val_img / img_p.name
+            if img_p.resolve() != dst_img.resolve():
+                shutil.copy(str(img_p), str(dst_img))
+            if img_p.stem in all_lbls:
+                lbl_p = all_lbls[img_p.stem]
+                shutil.copy(str(lbl_p), str(std_val_lbl / f"{img_p.stem}.txt"))
+
+    return str(std_train_img), str(std_train_lbl), str(std_val_img), str(std_val_lbl)
+
+
 def check_dataset_integrity(
-    train_img_dir: str,
-    train_label_dir: str,
-    val_img_dir: str,
-    val_label_dir: str,
+    train_img_dir: str = "datasets/chestxray8/train/images",
+    train_label_dir: str = "datasets/chestxray8/train/labels",
+    val_img_dir: str = "datasets/chestxray8/val/images",
+    val_label_dir: str = "datasets/chestxray8/val/labels",
     output_csv: str = "reports/dataset_integrity_report.csv"
 ) -> pd.DataFrame:
     """Perform rigorous dataset integrity checks across train and validation splits."""
     os.makedirs(os.path.dirname(output_csv), exist_ok=True)
+
+    # Auto-resolve / standardize directory if missing
+    if not os.path.exists(train_img_dir) or not os.path.exists(val_img_dir):
+        print("[WARN] Specified dataset directories not found directly. Running auto-standardizer...")
+        t_img, t_lbl, v_img, v_lbl = prepare_and_standardize_dataset(os.path.dirname(os.path.dirname(train_img_dir)) or "datasets/chestxray8")
+        train_img_dir, train_label_dir, val_img_dir, val_label_dir = t_img, t_lbl, v_img, v_lbl
+
     records = []
     seen_hashes = {}
 
@@ -51,6 +155,7 @@ def check_dataset_integrity(
     ]
 
     print("[INFO] Initiating Dataset Integrity Check...")
+
 
     for split_name, img_dir, lbl_dir in splits:
         if not os.path.exists(img_dir):
