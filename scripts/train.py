@@ -175,6 +175,32 @@ def update_metrics_and_lr(exp_dir: Path, reports_dir: str):
             print(f"[SUCCESS] Saved learning rate curve: {lr_plot}")
 
 
+def check_stage_already_completed(stage: int, checkpoint_dir: str, reports_dir: str) -> bool:
+    """Check if the current stage has already been trained and archived (locally or in Google Drive)."""
+    target_ckpt = Path(checkpoint_dir) / f"checkpoint_{stage * 10}.pt"
+    drive_dir = Path("/content/drive/MyDrive/YOLO_ChestXray")
+    drive_ckpt = drive_dir / "checkpoints" / f"checkpoint_{stage * 10}.pt"
+    drive_metrics = drive_dir / "reports" / "metrics_history.csv"
+
+    # Sync from Google Drive if available
+    if not target_ckpt.exists() and drive_ckpt.exists() and drive_ckpt.stat().st_size > 0:
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        shutil.copy(drive_ckpt, target_ckpt)
+        print(f"[CACHE] Restored stage {stage} checkpoint from Google Drive: {drive_ckpt}")
+
+    if drive_metrics.exists() and not (Path(reports_dir) / "metrics_history.csv").exists():
+        os.makedirs(reports_dir, exist_ok=True)
+        shutil.copy(drive_metrics, Path(reports_dir) / "metrics_history.csv")
+
+    if target_ckpt.exists() and target_ckpt.stat().st_size > 0:
+        print("=" * 70)
+        print(f"✨ [SKIP] Stage {stage} result already exists ({target_ckpt.name})!")
+        print(f"⏩ Skipping Stage {stage} training and proceeding directly to the next step.")
+        print("=" * 70)
+        return True
+    return False
+
+
 def resolve_exp_dir(project: str, name: str) -> Path:
     """Find the most recent experiment output directory even if YOLOv7 incremented the name."""
     exp_dir = Path(project) / name
@@ -228,38 +254,44 @@ def archive_and_verify_checkpoints(exp_dir: Path, stage: int, checkpoint_dir: st
 def main():
     opt = parse_opt()
 
+    # 1. Check if this stage was already completed before running
+    if check_stage_already_completed(opt.stage, opt.checkpoint_dir, opt.reports_dir):
+        return
+
     print("=" * 70)
     print(f"🚀 YOLO_ChestXray Training Pipeline - Stage {opt.stage} (Plan 1 v4.0 Compliant)")
     print(f"🔒 Fixed Seed: {SEED} | Non-Interactive Mode: WANDB Disabled")
     print("=" * 70)
 
-    # Build execution command following Plan 1 v4.0 resume standard
-    if opt.resume and os.path.exists(opt.resume):
-        # Correct resume method for Stages 2 to 5
-        print(f"[RESUME STANDARD] Resuming training from stage checkpoint: {opt.resume}")
-        cmd = [
-            sys.executable,
-            "train.py",
-            f"--resume {opt.resume}"
-        ]
-    else:
-        # Standard initial training for Stage 1
-        cmd = [
-            sys.executable,
-            "train.py",
-            f"--weights {opt.weights}",
-            f"--cfg {opt.cfg}",
-            f"--data {opt.data}",
-            f"--hyp {opt.hyp}",
-            f"--epochs {opt.epochs}",
-            f"--batch-size {opt.batch_size}",
-            f"--img-size {' '.join(map(str, opt.img_size))}",
-            f"--project {opt.project}",
-            f"--name {opt.name}",
-            "--exist-ok",
-        ]
-        if opt.device:
-            cmd.append(f"--device {opt.device}")
+    # Determine starting weights
+    weights_path = opt.weights
+    if opt.resume:
+        weights_path = opt.resume
+        # If resume path doesn't exist locally, check Drive
+        if not os.path.exists(weights_path):
+            drive_ckpt = Path(f"/content/drive/MyDrive/YOLO_ChestXray/{opt.resume}")
+            if drive_ckpt.exists():
+                os.makedirs(os.path.dirname(weights_path), exist_ok=True)
+                shutil.copy(drive_ckpt, weights_path)
+                print(f"[RESUME] Retrieved {opt.resume} from Google Drive")
+
+    # Build reliable execution command avoiding YOLOv7 opt.yaml resume bug
+    cmd = [
+        sys.executable,
+        "train.py",
+        f"--weights {weights_path}",
+        f"--cfg {opt.cfg}",
+        f"--data {opt.data}",
+        f"--hyp {opt.hyp}",
+        f"--epochs {opt.epochs}",
+        f"--batch-size {opt.batch_size}",
+        f"--img-size {' '.join(map(str, opt.img_size))}",
+        f"--project {opt.project}",
+        f"--name {opt.name}",
+        "--exist-ok",
+    ]
+    if opt.device:
+        cmd.append(f"--device {opt.device}")
 
     full_cmd = " ".join(cmd)
     print(f"[EXEC] Running command: {full_cmd}")
@@ -276,6 +308,7 @@ def main():
     else:
         print(f"[ERROR] Training failed with exit code: {exit_code}")
         sys.exit(exit_code)
+
 
 
 
