@@ -75,12 +75,22 @@
 
 ---
 
-### 步驟 3：安裝環境與下載 ChestXray8 資料集
-1. **複製 YOLOv7 與依賴**：自動下載官方預訓練權重 `yolov7.pt`。
-2. **Kaggle API 整合**：
-   - 上傳 `kaggle.json`（若雲端硬碟已存有則自動載入）。
+### 步驟 3：安裝環境與相容性修補 (重要：嚴禁執行 requirements.txt)
+1. **環境規則 (Plan 1 v4.0 標準)**：
+   - ⚠️ **切勿執行 `pip install -r requirements.txt`**（Colab 原生 Python 3.13 / Torch 2.11 環境會因 `numpy<1.24` 強制編譯舊版 NumPy 而產生建置錯誤失敗）。
+   - **僅安裝必要延伸套件**：
+     ```bash
+     !pip install -q seaborn tensorboard pycocotools pypdf
+     ```
+2. **複製 YOLOv7 與套用自動修補**：
+   - 自動注入 `weights_only=False` 至 `torch.load`（解決 PyTorch 2.x/2.11+ 的 `_pickle.UnpicklingError`）。
+   - 自動注入 NumPy 舊版型別相容性別名（`np.int = int`, `np.float = float`, `np.bool = bool`）。
+   - 自動修補 `utils/loss.py` 張量索引。
+   - 下載官方預訓練權重 `yolov7.pt`。
+3. **Kaggle API 整合與資料集驗證**：
+   - 上傳 `kaggle.json` 或由雲端硬碟 Secrets / Colab Secrets 讀取。
    - 自動下載並解壓縮 [YOLO Annotated ChestXray-8 Dataset](https://www.kaggle.com/datasets/spritan1/yolo-annotated-chestxray-8-object-detection/data)。
-3. **配置檔確認**：自動產生 `configs/chestxray.yaml`，對應 14 種胸腔病灶類別。
+   - 自動產生 `configs/chestxray.yaml` 並執行資料完整性檢驗（`reports/dataset_integrity_report.csv`）。
 
 ---
 
