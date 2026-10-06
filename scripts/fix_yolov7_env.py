@@ -167,22 +167,26 @@ def patch_yolov7_loss_py(yolov7_dir: str = "."):
     with open(loss_py, "r", encoding="utf-8") as f:
         content = f.read()
 
-    target_old = "indices.append((b, a, gj.clamp_(0, gain[3] - 1), gi.clamp_(0, gain[2] - 1)))"
-    target_new = "indices.append((b, a, gj.clamp_(0, shape[2] - 1).long(), gi.clamp_(0, shape[3] - 1).long()))"
-    target_old_2 = "indices.append((b, a, gj.clamp_(0, gain[3] - 1.0), gi.clamp_(0, gain[2] - 1.0)))"
+    # Targets to replace (including any buggy previous replacement)
+    targets_old = [
+        "indices.append((b, a, gj.clamp_(0, shape[2] - 1).long(), gi.clamp_(0, shape[3] - 1).long()))",
+        "indices.append((b, a, gj.clamp_(0, gain[3] - 1), gi.clamp_(0, gain[2] - 1)))",
+        "indices.append((b, a, gj.clamp_(0, gain[3] - 1.0), gi.clamp_(0, gain[2] - 1.0)))",
+        "indices.append((b, a, gj.clamp_(0, gain[3].long() - 1), gi.clamp_(0, gain[2].long() - 1)))",
+    ]
+    target_correct = "indices.append((b, a, gj.clamp_(0, (gain[3] - 1).long()), gi.clamp_(0, (gain[2] - 1).long())))"
 
     modified = False
-    if target_old in content:
-        content = content.replace(target_old, target_new)
-        modified = True
-    elif target_old_2 in content:
-        content = content.replace(target_old_2, target_new)
-        modified = True
+    for t in targets_old:
+        if t in content:
+            content = content.replace(t, target_correct)
+            modified = True
 
     if modified:
         with open(loss_py, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"[ENV FIX] Successfully patched {loss_py.name} for PyTorch 2.x tensor indexing.")
+
 
 
 def setup_plan1_4_environment(yolov7_dir: str = ".", reports_dir: str = "reports"):

@@ -175,6 +175,21 @@ def update_metrics_and_lr(exp_dir: Path, reports_dir: str):
             print(f"[SUCCESS] Saved learning rate curve: {lr_plot}")
 
 
+def resolve_exp_dir(project: str, name: str) -> Path:
+    """Find the most recent experiment output directory even if YOLOv7 incremented the name."""
+    exp_dir = Path(project) / name
+    if (exp_dir / "weights" / "last.pt").exists() or (exp_dir / "weights" / "best.pt").exists() or (exp_dir / "results.txt").exists():
+        return exp_dir
+
+    # Search for incremented names like stage_12, stage_13, etc.
+    matches = sorted(Path(project).glob(f"{name}*"), key=os.path.getmtime, reverse=True)
+    for m in matches:
+        if (m / "weights" / "last.pt").exists() or (m / "weights" / "best.pt").exists() or (m / "results.txt").exists():
+            print(f"[INFO] Resolved active experiment directory: {m}")
+            return m
+    return exp_dir
+
+
 def archive_and_verify_checkpoints(exp_dir: Path, stage: int, checkpoint_dir: str, reports_dir: str):
     """Verify and archive checkpoint_xx.pt and best_model.pt."""
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -186,7 +201,7 @@ def archive_and_verify_checkpoints(exp_dir: Path, stage: int, checkpoint_dir: st
 
     # Checkpoint Validation requirement
     if not last_pt.exists() and not best_pt.exists():
-        print(f"[ERROR] Checkpoint verification failed: Neither {last_pt} nor {best_pt} exist!")
+        print(f"[ERROR] Checkpoint verification failed: Neither {last_pt} nor {best_pt} exist in {exp_dir}!")
         sys.exit(1)
 
     target_stage_ckpt = Path(checkpoint_dir) / f"checkpoint_{stage * 10}.pt"
@@ -214,11 +229,11 @@ def main():
     opt = parse_opt()
 
     print("=" * 70)
-    print(f"🚀 YOLO_ChestXray Training Pipeline - Stage {opt.stage} (Plan 1-2 Compliant)")
+    print(f"🚀 YOLO_ChestXray Training Pipeline - Stage {opt.stage} (Plan 1 v4.0 Compliant)")
     print(f"🔒 Fixed Seed: {SEED} | Non-Interactive Mode: WANDB Disabled")
     print("=" * 70)
 
-    # Build execution command following Plan 1-2 resume standard
+    # Build execution command following Plan 1 v4.0 resume standard
     if opt.resume and os.path.exists(opt.resume):
         # Correct resume method for Stages 2 to 5
         print(f"[RESUME STANDARD] Resuming training from stage checkpoint: {opt.resume}")
@@ -241,6 +256,7 @@ def main():
             f"--img-size {' '.join(map(str, opt.img_size))}",
             f"--project {opt.project}",
             f"--name {opt.name}",
+            "--exist-ok",
         ]
         if opt.device:
             cmd.append(f"--device {opt.device}")
@@ -253,13 +269,14 @@ def main():
     log_gpu_usage(opt.reports_dir)
 
     if exit_code == 0:
-        exp_dir = Path(opt.project) / opt.name
+        exp_dir = resolve_exp_dir(opt.project, opt.name)
         archive_and_verify_checkpoints(exp_dir, opt.stage, opt.checkpoint_dir, opt.reports_dir)
         update_metrics_and_lr(exp_dir, opt.reports_dir)
         print(f"[SUCCESS] Stage {opt.stage} training finished and verified successfully.")
     else:
         print(f"[ERROR] Training failed with exit code: {exit_code}")
         sys.exit(exit_code)
+
 
 
 if __name__ == "__main__":
