@@ -1,0 +1,13 @@
+{
+  "plan_version": "Plan 1 v4.0",
+  "weights_only_policy": "weights_only=False",
+  "patched_files": {
+    "train.py": "PATCHED (torch.load wrapper injected)",
+    "test.py": "PATCHED (torch.load wrapper injected)",
+    "detect.py": "PATCHED (torch.load wrapper injected)",
+    "models/experimental.py": "PATCHED (torch.load wrapper injected)",
+    "models/yolo.py": "PATCHED (torch.load wrapper injected)",
+    "utils/torch_utils.py": "PATCHED (torch.load wrapper injected)"
+  },
+  "overall_status": "SUCCESS"
+}

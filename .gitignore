@@ -21,9 +21,8 @@ checkpoints/*.pt
 runs/
 
 # Reports and temporary outputs
-reports/*.png
-reports/*.csv
-!reports/.gitkeep
+# Keep reports, metrics, charts, and final PDF tracked
+!reports/**
 releases/*.zip
 !releases/.gitkeep
 

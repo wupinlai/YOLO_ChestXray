@@ -1,0 +1,3 @@
+Timestamp,GPU_Name,GPU_Util_Percent,Memory_Util_Percent,Memory_Used_MB,Memory_Total_MB,Temperature_C
+2026/10/07 01:32:42.694,Tesla T4,0.0,0.0,3.0,15360.0,46.0
+2026/10/07 02:16:24.418,Tesla T4,35.0,4.0,3.0,15360.0,74.0

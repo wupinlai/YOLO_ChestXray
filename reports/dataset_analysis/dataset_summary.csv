@@ -1,0 +1,15 @@
+Class,Train_Boxes,Val_Boxes,Total_Boxes
+Atelectasis,120,26,146
+Cardiomegaly,124,29,153
+Effusion,128,36,164
+Infiltration,144,36,180
+Mass,78,20,98
+Nodule,0,0,0
+Pneumonia,0,0,0
+Pneumothorax,0,0,0
+Consolidation,0,0,0
+Edema,0,0,0
+Emphysema,0,0,0
+Fibrosis,0,0,0
+Pleural_Thickening,0,0,0
+Hernia,0,0,0
