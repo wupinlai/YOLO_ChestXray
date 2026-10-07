@@ -18,21 +18,44 @@ import os
 import shutil
 import sys
 from pathlib import Path
+
+# Ensure project root is in sys.path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
 import pandas as pd
 import yaml
 
-from scripts.dataset_utils import check_dataset_integrity, run_dataset_analysis
-from scripts.analysis import (
-    CLASS_NAMES_DEFAULT,
-    annotate_and_save_case,
-    generate_comparison_plots,
-    generate_error_galleries,
-    generate_project_manifest,
-    run_full_statistical_analysis,
-    xywh2xyxy,
-)
-from scripts.generate_report import generate_final_report_pdf
-from scripts.inference import run_multi_sample_inference, select_10_random_samples
+try:
+    from scripts.dataset_utils import check_dataset_integrity, run_dataset_analysis
+    from scripts.analysis import (
+        CLASS_NAMES_DEFAULT,
+        annotate_and_save_case,
+        generate_comparison_plots,
+        generate_error_galleries,
+        generate_project_manifest,
+        run_full_statistical_analysis,
+        xywh2xyxy,
+    )
+    from scripts.generate_report import generate_final_report_pdf
+    from scripts.inference import run_multi_sample_inference, select_10_random_samples
+except (ImportError, ModuleNotFoundError):
+    from dataset_utils import check_dataset_integrity, run_dataset_analysis
+    from analysis import (
+        CLASS_NAMES_DEFAULT,
+        annotate_and_save_case,
+        generate_comparison_plots,
+        generate_error_galleries,
+        generate_project_manifest,
+        run_full_statistical_analysis,
+        xywh2xyxy,
+    )
+    from generate_report import generate_final_report_pdf
+    from inference import run_multi_sample_inference, select_10_random_samples
 
 
 def parse_args():
