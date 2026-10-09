@@ -315,7 +315,8 @@ def main():
         if not os.path.exists("opt.yaml"):
             # Synthesize minimal valid opt.yaml
             import yaml
-            opt_dict = vars(opt)
+            opt_dict = dict(vars(opt))
+            opt_dict['total_batch_size'] = opt.batch_size
             with open("opt.yaml", "w") as f:
                 yaml.dump(opt_dict, f, default_flow_style=False)
 

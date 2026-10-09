@@ -224,11 +224,19 @@ def patch_yolov7_train_py_resume(yolov7_dir: str = "."):
                 opt = _d['opt'] if isinstance(_d['opt'], argparse.Namespace) else argparse.Namespace(**_d['opt'])
             else:
                 opt = argparse.Namespace(epochs=opt.epochs, cfg='', weights='', data='configs/chestxray.yaml', batch_size=opt.batch_size if hasattr(opt, 'batch_size') else 8, img_size=opt.img_size if hasattr(opt, 'img_size') else [1024, 1024], hyp='data/hyp.scratch.p5.yaml', project='runs/train', name='exp', device='', exist_ok=True, single_cls=False, sync_bn=False, local_rank=-1, entity=None, upload_dataset=False, bbox_interval=-1, save_period=-1, artifact_alias='latest')
+        if not hasattr(opt, 'total_batch_size'):
+            opt.total_batch_size = getattr(opt, 'batch_size', 8)
         # -------------------------------------------"""
 
     # If already patched with chkpt, replace chkpt with _ckpt_target
     if "Path(chkpt).parent.parent / 'opt.yaml'" in content:
         content = content.replace("chkpt", "ckpt")
+
+    # Patch the reinstatement line: opt.total_batch_size -> getattr(opt, 'total_batch_size', opt.batch_size)
+    reinstatement_target = "opt.cfg, opt.weights, opt.resume, opt.batch_size, opt.global_rank, opt.local_rank = '', ckpt, True, opt.total_batch_size, *apriori"
+    reinstatement_safe = "_tb = getattr(opt, 'total_batch_size', getattr(opt, 'batch_size', 8)); _target = ckpt if 'ckpt' in locals() else opt.resume; opt.cfg, opt.weights, opt.resume, opt.batch_size, opt.global_rank, opt.local_rank = '', _target, True, _tb, *apriori"
+    if reinstatement_target in content:
+        content = content.replace(reinstatement_target, reinstatement_safe)
 
     modified = False
     for pat in old_patterns:
