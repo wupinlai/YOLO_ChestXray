@@ -218,12 +218,19 @@ def resolve_exp_dir(project: str, name: str) -> Path:
     if (exp_dir / "weights" / "last.pt").exists() or (exp_dir / "weights" / "best.pt").exists() or (exp_dir / "results.txt").exists():
         return exp_dir
 
-    # Search for incremented names like stage_12, stage_13, etc.
+    # Search for incremented names like stage_22, stage_23, etc.
     matches = sorted(Path(project).glob(f"{name}*"), key=os.path.getmtime, reverse=True)
     for m in matches:
         if (m / "weights" / "last.pt").exists() or (m / "weights" / "best.pt").exists() or (m / "results.txt").exists():
             print(f"[INFO] Resolved active experiment directory: {m}")
             return m
+
+    # Fallback to any recent directory under project
+    all_runs = sorted([d for d in Path(project).glob("*") if d.is_dir()], key=os.path.getmtime, reverse=True)
+    for r in all_runs:
+        if (r / "weights" / "last.pt").exists() or (r / "weights" / "best.pt").exists() or (r / "results.txt").exists():
+            print(f"[INFO] Resolved fallback experiment directory: {r}")
+            return r
     return exp_dir
 
 
@@ -304,61 +311,21 @@ def main():
                     print(f"[RESUME] Retrieved {opt.resume} from Google Drive: {cand}")
                     break
 
-    # Build reliable execution command avoiding YOLOv7 opt.yaml resume bug
-    if opt.resume and os.path.exists(weights_path):
-        # Guarantee opt.yaml exists in current working dir and checkpoint dir
-        if not os.path.exists("opt.yaml"):
-            for cand in [Path(opt.checkpoint_dir) / "opt.yaml", Path(opt.drive_dir) / "checkpoints" / "opt.yaml" if opt.drive_dir else None, Path("runs/train/stage_1/opt.yaml"), Path("runs/train/stage_2/opt.yaml")]:
-                if cand and cand.exists():
-                    shutil.copy(cand, "opt.yaml")
-                    break
-        if not os.path.exists("opt.yaml"):
-            import yaml
-            opt_dict = {
-                'weights': weights_path, 'cfg': '', 'data': opt.data if hasattr(opt, 'data') else 'configs/chestxray.yaml',
-                'hyp': opt.hyp if hasattr(opt, 'hyp') else 'data/hyp.scratch.p5.yaml',
-                'epochs': opt.epochs, 'batch_size': opt.batch_size,
-                'img_size': list(opt.img_size) if isinstance(opt.img_size, (list, tuple)) else [1024, 1024],
-                'rect': False, 'resume': True, 'nosave': False, 'notest': False, 'noautoanchor': False,
-                'evolve': False, 'bucket': '', 'cache_images': False, 'image_weights': False,
-                'device': opt.device if hasattr(opt, 'device') else '', 'multi_scale': False,
-                'single_cls': False, 'adam': False, 'sync_bn': False, 'local_rank': -1, 'workers': 8,
-                'project': opt.project, 'entity': None, 'name': opt.name, 'exist_ok': True,
-                'quad': False, 'linear_lr': False, 'label_smoothing': 0.0, 'upload_dataset': False,
-                'bbox_interval': -1, 'save_period': -1, 'artifact_alias': 'latest', 'freeze': [0],
-                'v5_metric': False, 'world_size': 1, 'global_rank': -1,
-                'save_dir': f"{opt.project}/{opt.name}", 'total_batch_size': opt.batch_size
-            }
-            with open("opt.yaml", "w") as f:
-                yaml.dump(opt_dict, f, default_flow_style=False)
-            os.makedirs(opt.checkpoint_dir, exist_ok=True)
-            with open(Path(opt.checkpoint_dir) / "opt.yaml", "w") as f:
-                yaml.dump(opt_dict, f, default_flow_style=False)
-
-        cmd = [
-            sys.executable,
-            "train.py",
-            f"--resume {weights_path}",
-            f"--epochs {opt.epochs}",
-            f"--project {opt.project}",
-            f"--name {opt.name}",
-            "--exist-ok",
-        ]
-    else:
-        cmd = [
-            sys.executable,
-            "train.py",
-            f"--weights {weights_path}",
-            f"--cfg {opt.cfg}",
-            f"--data {opt.data}",
-            f"--hyp {opt.hyp}",
-            f"--epochs {opt.epochs}",
-            f"--batch-size {opt.batch_size}",
-            f"--img-size {' '.join(map(str, opt.img_size))}",
-            f"--project {opt.project}",
-            f"--name {opt.name}",
-            "--exist-ok",
-        ]
+    # Build robust execution command for stage-wise training
+    cmd = [
+        sys.executable,
+        "train.py",
+        f"--weights {weights_path}",
+        f"--cfg {opt.cfg}",
+        f"--data {opt.data}",
+        f"--hyp {opt.hyp}",
+        f"--epochs {opt.epochs}",
+        f"--batch-size {opt.batch_size}",
+        f"--img-size {' '.join(map(str, opt.img_size))}",
+        f"--project {opt.project}",
+        f"--name {opt.name}",
+        "--exist-ok",
+    ]
     if opt.device:
         cmd.append(f"--device {opt.device}")
 
