@@ -198,16 +198,20 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
 
         # PAGE 10: Best Cases
         fig, ax = create_page_with_header("10. Best Cases: Top High-Accuracy Detections", "Highest IoU overlap and high-confidence localization instances", 10)
-        top5_path = os.path.join(reports_dir, "top5_detections.jpg")
+        best_path = os.path.join(reports_dir, "top5_detections.jpg")
+        if not os.path.exists(best_path):
+            best_path = os.path.join(reports_dir, "best_cases_gallery.jpg")
         ax_img = fig.add_axes([0.08, 0.10, 0.84, 0.76])
         ax_img.set_axis_off()
-        if os.path.exists(top5_path): ax_img.imshow(Image.open(top5_path))
+        if os.path.exists(best_path): ax_img.imshow(Image.open(best_path))
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 
         # PAGE 11: Worst Cases
         fig, ax = create_page_with_header("11. Worst Cases & Boundary Discrepancies", "Lowest IoU overlap instances and critical boundary discrepancy cases", 11)
         worst_path = os.path.join(reports_dir, "worst_iou_cases.jpg")
+        if not os.path.exists(worst_path):
+            worst_path = os.path.join(reports_dir, "worst_cases_gallery.jpg")
         ax_img = fig.add_axes([0.08, 0.10, 0.84, 0.76])
         ax_img.set_axis_off()
         if os.path.exists(worst_path): ax_img.imshow(Image.open(worst_path))
@@ -216,7 +220,9 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
 
         # PAGE 12: False Positive
         fig, ax = create_page_with_header("12. False Positive Error Gallery", "Visual inspection of over-detection cases with standardized red tags (#FF0000)", 12)
-        fp_gallery = os.path.join(reports_dir, "error_gallery.jpg")
+        fp_gallery = os.path.join(reports_dir, "fp_gallery.jpg")
+        if not os.path.exists(fp_gallery):
+            fp_gallery = os.path.join(reports_dir, "error_gallery.jpg")
         ax_img = fig.add_axes([0.08, 0.10, 0.84, 0.76])
         ax_img.set_axis_off()
         if os.path.exists(fp_gallery): ax_img.imshow(Image.open(fp_gallery))
@@ -225,25 +231,28 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
 
         # PAGE 13: False Negative
         fig, ax = create_page_with_header("13. False Negative Error Gallery", "Unidentified pathology lesions annotated with standardized orange tags (#FFA500)", 13)
+        fn_gallery = os.path.join(reports_dir, "fn_gallery.jpg")
         ax_img = fig.add_axes([0.08, 0.10, 0.84, 0.76])
         ax_img.set_axis_off()
-        if os.path.exists(fp_gallery): ax_img.imshow(Image.open(fp_gallery))
+        if os.path.exists(fn_gallery): ax_img.imshow(Image.open(fn_gallery))
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 
         # PAGE 14: Misclassification
         fig, ax = create_page_with_header("14. Misclassification Cases", "Lesion overlaps with conflicting pathology class predictions (Purple tags #B400FF)", 14)
+        mc_gallery = os.path.join(reports_dir, "misclassification_gallery.jpg")
         ax_img = fig.add_axes([0.08, 0.10, 0.84, 0.76])
         ax_img.set_axis_off()
-        if os.path.exists(worst_path): ax_img.imshow(Image.open(worst_path))
+        if os.path.exists(mc_gallery): ax_img.imshow(Image.open(mc_gallery))
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 
         # PAGE 15: Low IoU
         fig, ax = create_page_with_header("15. Low IoU Boundary Cases", "Correct pathology identification with sub-optimal IoU < 0.50 (Yellow tags #FFFF00)", 15)
+        low_iou_gallery = os.path.join(reports_dir, "low_iou_gallery.jpg")
         ax_img = fig.add_axes([0.08, 0.10, 0.84, 0.76])
         ax_img.set_axis_off()
-        if os.path.exists(worst_path): ax_img.imshow(Image.open(worst_path))
+        if os.path.exists(low_iou_gallery): ax_img.imshow(Image.open(low_iou_gallery))
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 

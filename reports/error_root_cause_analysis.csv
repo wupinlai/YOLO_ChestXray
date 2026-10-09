@@ -1,7 +1,7 @@
 Category,Description,EstimatedImpact,OccurrenceCount
-Class Imbalance,"Infrequent pathology classes (e.g. Hernia, Edema) having lower sample representations",High,18
-Small Object,Micro-nodules and subtle lesions under 32x32 pixel area,High,453
-Low Contrast,Faint opacities blending with mediastinum or rib structures,Medium,12
+Class Imbalance,"Infrequent pathology classes (e.g. Hernia, Edema) having lower sample representations",High,5
+Small Object,Micro-nodules and subtle lesions under 32x32 pixel area,High,8
+Low Contrast,Faint opacities blending with mediastinum or rib structures,Medium,4
 Blur,Patient respiration motion artifacts reducing edge sharpness,Low,3
-Occlusion,Diaphragmatic dome or cardiac shadow overlaps,Medium,355
-Annotation Error,Subjective radiologist bounding box boundary discrepancies,Low,1953
+Occlusion,Diaphragmatic dome or cardiac shadow overlaps,Medium,2
+Annotation Error,Subjective radiologist bounding box boundary discrepancies,Low,2

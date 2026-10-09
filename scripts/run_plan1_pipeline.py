@@ -27,6 +27,13 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 import pandas as pd
 import yaml
 
@@ -156,12 +163,12 @@ def run_plan1_postprocessing(args):
     os.makedirs(reports_dir, exist_ok=True)
 
     # 1. Dataset Integrity & Analysis
-    print("🔍 [1/8] Running Dataset Integrity & Analysis...")
+    print("[INFO] [1/8] Running Dataset Integrity & Analysis...")
     check_dataset_integrity(args.train_img_dir, args.train_label_dir, args.val_img_dir, args.val_label_dir, os.path.join(reports_dir, "dataset_integrity_report.csv"))
     run_dataset_analysis(args.data, args.train_img_dir, args.train_label_dir, args.val_img_dir, args.val_label_dir, os.path.join(reports_dir, "dataset_analysis"))
 
     # 2. Progression Charts
-    print("📊 [2/8] Generating 4 Comparison Charts & Summary...")
+    print("[INFO] [2/8] Generating 4 Comparison Charts & Summary...")
     metrics_csv = os.path.join(reports_dir, "metrics_history.csv")
     generate_comparison_plots(metrics_csv, reports_dir)
 
@@ -179,64 +186,158 @@ def run_plan1_postprocessing(args):
         preds = load_predictions("runs/test/val_results/labels", args.val_img_dir, class_names)
 
     # 5. Statistical & Root Cause Analysis
-    print("📈 [3/8] Running IoU, Confidence, Root Cause, and Error Analysis...")
+    print("[INFO] [3/8] Running IoU, Confidence, Root Cause, and Error Analysis...")
     run_full_statistical_analysis(preds, gts, class_names, reports_dir)
 
-    # 6. Automated Error Annotations
-    print("🎨 [4/8] Generating Standardized Error Annotations...")
+    # 6. Automated Error & Case Annotations
+    print("[INFO] [4/8] Generating Standardized Case & Error Annotations...")
     error_dir = os.path.join(reports_dir, "error_analysis")
+    
+    # Best Cases
+    best_csv = os.path.join(reports_dir, "best_cases.csv")
+    if os.path.exists(best_csv):
+        df_best = pd.read_csv(best_csv)
+        for idx, row in df_best.head(5).iterrows():
+            img_p = row.get('ImagePath') if (pd.notna(row.get('ImagePath')) and os.path.exists(str(row.get('ImagePath')))) else os.path.join(args.val_img_dir, str(row['Image']))
+            out_p = os.path.join(error_dir, "best_cases", f"best_case_{idx+1}.jpg")
+            if os.path.exists(img_p):
+                pred_b = json.loads(row['PredBox']) if (pd.notna(row.get('PredBox')) and str(row['PredBox']).strip().startswith('[')) else None
+                gt_b = json.loads(row['GT_Box']) if (pd.notna(row.get('GT_Box')) and str(row['GT_Box']).strip().startswith('[')) else None
+                annotate_and_save_case(
+                    img_p, out_p, "Best Case",
+                    gt_box=gt_b, pred_box=pred_b,
+                    gt_class=str(row.get('GT_Class', row['Class'])),
+                    pred_class=str(row['Class']),
+                    conf=float(row.get('Confidence', 0.9)),
+                    iou=float(row.get('IoU', 0.8))
+                )
+
+    # Worst Cases
+    worst_csv = os.path.join(reports_dir, "worst_cases.csv")
+    if os.path.exists(worst_csv):
+        df_worst = pd.read_csv(worst_csv)
+        for idx, row in df_worst.head(5).iterrows():
+            img_p = row.get('ImagePath') if (pd.notna(row.get('ImagePath')) and os.path.exists(str(row.get('ImagePath')))) else os.path.join(args.val_img_dir, str(row['Image']))
+            out_p = os.path.join(error_dir, "worst_cases", f"worst_case_{idx+1}.jpg")
+            if os.path.exists(img_p):
+                pred_b = json.loads(row['PredBox']) if (pd.notna(row.get('PredBox')) and str(row['PredBox']).strip().startswith('[')) else None
+                gt_b = json.loads(row['GT_Box']) if (pd.notna(row.get('GT_Box')) and str(row['GT_Box']).strip().startswith('[')) else None
+                annotate_and_save_case(
+                    img_p, out_p, "Worst Case",
+                    gt_box=gt_b, pred_box=pred_b,
+                    gt_class=str(row.get('GT_Class', '')),
+                    pred_class=str(row.get('Class', '')),
+                    conf=float(row.get('Confidence', 0.5)),
+                    iou=float(row.get('IoU', 0.3))
+                )
+
+    # False Positive Cases
     fp_csv = os.path.join(reports_dir, "false_positive.csv")
     if os.path.exists(fp_csv):
         df_fp = pd.read_csv(fp_csv)
         for idx, row in df_fp.head(5).iterrows():
-            img_p = os.path.join(args.val_img_dir, str(row['Image']))
+            img_p = row.get('ImagePath') if (pd.notna(row.get('ImagePath')) and os.path.exists(str(row.get('ImagePath')))) else os.path.join(args.val_img_dir, str(row['Image']))
             out_p = os.path.join(error_dir, "false_positive", f"fp_case_{idx+1}.jpg")
             if os.path.exists(img_p):
-                annotate_and_save_case(img_p, out_p, "False Positive", pred_class=str(row['Class']), conf=float(row.get('Confidence', 0.5)))
+                pred_b = json.loads(row['PredBox']) if (pd.notna(row.get('PredBox')) and str(row['PredBox']).strip().startswith('[')) else None
+                annotate_and_save_case(
+                    img_p, out_p, "False Positive",
+                    pred_box=pred_b,
+                    pred_class=str(row['Class']),
+                    conf=float(row.get('Confidence', 0.5))
+                )
 
+    # False Negative Cases
     fn_csv = os.path.join(reports_dir, "false_negative.csv")
     if os.path.exists(fn_csv):
         df_fn = pd.read_csv(fn_csv)
         for idx, row in df_fn.head(5).iterrows():
-            img_p = os.path.join(args.val_img_dir, str(row['Image']))
+            img_p = row.get('ImagePath') if (pd.notna(row.get('ImagePath')) and os.path.exists(str(row.get('ImagePath')))) else os.path.join(args.val_img_dir, str(row['Image']))
             out_p = os.path.join(error_dir, "false_negative", f"fn_case_{idx+1}.jpg")
             if os.path.exists(img_p):
-                annotate_and_save_case(img_p, out_p, "False Negative", gt_class=str(row['Class']))
+                gt_b = json.loads(row['GT_Box']) if (pd.notna(row.get('GT_Box')) and str(row['GT_Box']).strip().startswith('[')) else None
+                annotate_and_save_case(
+                    img_p, out_p, "False Negative",
+                    gt_box=gt_b,
+                    gt_class=str(row['Class'])
+                )
 
+    # Misclassification Cases
     mc_csv = os.path.join(reports_dir, "misclassification.csv")
     if os.path.exists(mc_csv):
         df_mc = pd.read_csv(mc_csv)
         for idx, row in df_mc.head(5).iterrows():
-            img_p = os.path.join(args.val_img_dir, str(row['Image']))
+            img_p = row.get('ImagePath') if (pd.notna(row.get('ImagePath')) and os.path.exists(str(row.get('ImagePath')))) else os.path.join(args.val_img_dir, str(row['Image']))
             out_p = os.path.join(error_dir, "misclassification", f"mc_case_{idx+1}.jpg")
             if os.path.exists(img_p):
-                annotate_and_save_case(img_p, out_p, "Misclassification", gt_class=str(row.get('GT_Class', '')), pred_class=str(row['Class']), conf=float(row.get('Confidence', 0.5)), iou=float(row.get('IoU', 0.4)))
+                pred_b = json.loads(row['PredBox']) if (pd.notna(row.get('PredBox')) and str(row['PredBox']).strip().startswith('[')) else None
+                gt_b = json.loads(row['GT_Box']) if (pd.notna(row.get('GT_Box')) and str(row['GT_Box']).strip().startswith('[')) else None
+                annotate_and_save_case(
+                    img_p, out_p, "Misclassification",
+                    gt_box=gt_b, pred_box=pred_b,
+                    gt_class=str(row.get('GT_Class', '')),
+                    pred_class=str(row['Class']),
+                    conf=float(row.get('Confidence', 0.5)),
+                    iou=float(row.get('IoU', 0.4))
+                )
 
-    # 7. Error Galleries (2x2 Grid)
-    print("🖼️ [5/8] Assembling 2x2 Error Galleries...")
-    gallery_sources = glob.glob(os.path.join(error_dir, "*", "*.jpg"))
-    generate_error_galleries(gallery_sources, os.path.join(reports_dir, "error_gallery.jpg"), "Error Gallery")
-    generate_error_galleries(gallery_sources, os.path.join(reports_dir, "worst_iou_cases.jpg"), "Worst IoU Cases")
-    generate_error_galleries(gallery_sources, os.path.join(reports_dir, "top5_detections.jpg"), "Top Detections")
+    # Low IoU Cases
+    low_iou_csv = os.path.join(reports_dir, "low_iou.csv")
+    if os.path.exists(low_iou_csv):
+        df_low_iou = pd.read_csv(low_iou_csv)
+        for idx, row in df_low_iou.head(5).iterrows():
+            img_p = row.get('ImagePath') if (pd.notna(row.get('ImagePath')) and os.path.exists(str(row.get('ImagePath')))) else os.path.join(args.val_img_dir, str(row['Image']))
+            out_p = os.path.join(error_dir, "low_iou", f"low_iou_case_{idx+1}.jpg")
+            if os.path.exists(img_p):
+                pred_b = json.loads(row['PredBox']) if (pd.notna(row.get('PredBox')) and str(row['PredBox']).strip().startswith('[')) else None
+                gt_b = json.loads(row['GT_Box']) if (pd.notna(row.get('GT_Box')) and str(row['GT_Box']).strip().startswith('[')) else None
+                annotate_and_save_case(
+                    img_p, out_p, "Low IoU",
+                    gt_box=gt_b, pred_box=pred_b,
+                    gt_class=str(row.get('GT_Class', row['Class'])),
+                    pred_class=str(row['Class']),
+                    conf=float(row.get('Confidence', 0.5)),
+                    iou=float(row.get('IoU', 0.35))
+                )
+
+    # 7. Distinct Error & Case Galleries (2x2 Grid)
+    print("[INFO] [5/8] Assembling 2x2 Distinct Error & Case Galleries...")
+    best_sources = sorted(glob.glob(os.path.join(error_dir, "best_cases", "*.jpg")))
+    worst_sources = sorted(glob.glob(os.path.join(error_dir, "worst_cases", "*.jpg")))
+    fp_sources = sorted(glob.glob(os.path.join(error_dir, "false_positive", "*.jpg")))
+    fn_sources = sorted(glob.glob(os.path.join(error_dir, "false_negative", "*.jpg")))
+    mc_sources = sorted(glob.glob(os.path.join(error_dir, "misclassification", "*.jpg")))
+    low_iou_sources = sorted(glob.glob(os.path.join(error_dir, "low_iou", "*.jpg")))
+
+    generate_error_galleries(best_sources, os.path.join(reports_dir, "top5_detections.jpg"), "Best Cases")
+    generate_error_galleries(best_sources, os.path.join(reports_dir, "best_cases_gallery.jpg"), "Best Cases")
+    generate_error_galleries(worst_sources, os.path.join(reports_dir, "worst_iou_cases.jpg"), "Worst Cases")
+    generate_error_galleries(worst_sources, os.path.join(reports_dir, "worst_cases_gallery.jpg"), "Worst Cases")
+    generate_error_galleries(fp_sources, os.path.join(reports_dir, "fp_gallery.jpg"), "False Positive")
+    generate_error_galleries(fp_sources, os.path.join(reports_dir, "error_gallery.jpg"), "False Positive")
+    generate_error_galleries(fn_sources, os.path.join(reports_dir, "fn_gallery.jpg"), "False Negative")
+    generate_error_galleries(mc_sources, os.path.join(reports_dir, "misclassification_gallery.jpg"), "Misclassification")
+    generate_error_galleries(low_iou_sources, os.path.join(reports_dir, "low_iou_gallery.jpg"), "Low IoU")
 
     # 8. Final Multi-Sample Inference Verification (10 samples)
-    print("🔍 [6/8] Running Final 10-Sample Inference Verification...")
+    print("[INFO] [6/8] Running Final 10-Sample Inference Verification...")
     final_infer_dir = os.path.join(reports_dir, "final_inference")
     if os.path.exists(args.best_model):
         run_multi_sample_inference(args.best_model, args.data, final_infer_dir, num_samples=10)
 
     # 9. Compile Master 16-Page Final PDF Report
-    print("📄 [7/8] Compiling 16-page Master final_report.pdf...")
+    print("[INFO] [7/8] Compiling 16-page Master final_report.pdf...")
     pdf_out = os.path.join(reports_dir, "final_report", "final_report.pdf")
     generate_final_report_pdf(reports_dir, pdf_out)
 
     # 10. Project Manifest
-    print("📋 [8/8] Generating Project Manifest...")
+    print("[INFO] [8/8] Generating Project Manifest...")
     generate_project_manifest(reports_dir, os.path.join(reports_dir, "project_manifest.json"))
 
-    print("🎉 Plan 1-2 Full Pipeline Execution Completed Successfully!")
+    print("[SUCCESS] Plan 1-2 Full Pipeline Execution Completed Successfully!")
 
 
 if __name__ == "__main__":
     args = parse_args()
     run_plan1_postprocessing(args)
+
