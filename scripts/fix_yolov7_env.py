@@ -189,6 +189,53 @@ def patch_yolov7_loss_py(yolov7_dir: str = "."):
 
 
 
+def patch_yolov7_train_py_resume(yolov7_dir: str = "."):
+    """Patch train.py in YOLOv7 to safely resolve opt.yaml when resuming from arbitrary checkpoint paths."""
+    train_py = Path(yolov7_dir) / "train.py"
+    if not train_py.exists():
+        return
+
+    with open(train_py, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Pattern: with open(Path(ckpt).parent.parent / 'opt.yaml') as f: or chkpt
+    old_patterns = [
+        "with open(Path(ckpt).parent.parent / 'opt.yaml') as f:",
+        "with open(Path(chkpt).parent.parent / 'opt.yaml') as f:",
+    ]
+    replacement = """# --- Safe opt.yaml resolution for resume ---
+        _opt_candidates = [
+            Path(chkpt).parent.parent / 'opt.yaml',
+            Path(chkpt).parent / 'opt.yaml',
+            Path('checkpoints/opt.yaml'),
+            Path('opt.yaml'),
+            Path('runs/train/stage_1/opt.yaml'),
+            Path('runs/train/stage_2/opt.yaml'),
+        ]
+        _opt_file = next((c for c in _opt_candidates if c.exists()), None)
+        if _opt_file is not None:
+            with open(_opt_file) as f:
+                opt = argparse.Namespace(**yaml.load(f, Loader=yaml.SafeLoader))
+        else:
+            _d = torch.load(chkpt, map_location='cpu')
+            if isinstance(_d, dict) and 'opt' in _d and _d['opt'] is not None:
+                opt = _d['opt'] if isinstance(_d['opt'], argparse.Namespace) else argparse.Namespace(**_d['opt'])
+            else:
+                opt = argparse.Namespace(epochs=opt.epochs, cfg='', weights='', data='configs/chestxray.yaml', batch_size=opt.batch_size if hasattr(opt, 'batch_size') else 8, img_size=opt.img_size if hasattr(opt, 'img_size') else [1024, 1024], hyp='data/hyp.scratch.p5.yaml', project='runs/train', name='exp', device='', exist_ok=True, single_cls=False, sync_bn=False, local_rank=-1, entity=None, upload_dataset=False, bbox_interval=-1, save_period=-1, artifact_alias='latest')
+        # -------------------------------------------"""
+
+    modified = False
+    for pat in old_patterns:
+        if pat in content:
+            content = content.replace(pat, replacement)
+            modified = True
+
+    if modified:
+        with open(train_py, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"[ENV FIX] Successfully patched {train_py.name} for safe resume opt.yaml lookup.")
+
+
 def setup_plan1_4_environment(yolov7_dir: str = ".", reports_dir: str = "reports"):
     """Main entrypoint for Plan 1 v4.0 environment setup & compatibility enforcement."""
     # Disable WANDB completely
@@ -198,6 +245,7 @@ def setup_plan1_4_environment(yolov7_dir: str = ".", reports_dir: str = "reports
     check_and_report_environment(reports_dir)
     patch_numpy_aliases()
     patch_yolov7_loss_py(yolov7_dir)
+    patch_yolov7_train_py_resume(yolov7_dir)
     patch_torch_load_in_files(yolov7_dir, reports_dir)
     print("=" * 70)
     print("✅ [Plan 1 v4.0] YOLOv7 Legacy Compatibility Environment Ready")

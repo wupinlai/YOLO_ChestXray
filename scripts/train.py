@@ -258,6 +258,16 @@ def archive_and_verify_checkpoints(exp_dir: Path, stage: int, epochs: int, check
         shutil.copy(best_pt, Path(checkpoint_dir) / "best.pt")
         print(f"[SUCCESS] Updated best model checkpoint: {target_best_ckpt}")
 
+    # Archive opt.yaml and hyp.yaml to ensure YOLOv7 resume never fails
+    opt_yaml_src = exp_dir / "opt.yaml"
+    hyp_yaml_src = exp_dir / "hyp.yaml"
+    if opt_yaml_src.exists():
+        shutil.copy(opt_yaml_src, Path(checkpoint_dir) / "opt.yaml")
+        shutil.copy(opt_yaml_src, "opt.yaml")
+        print(f"[SUCCESS] Archived opt.yaml configuration for resume safety.")
+    if hyp_yaml_src.exists():
+        shutil.copy(hyp_yaml_src, Path(checkpoint_dir) / "hyp.yaml")
+
     # Archive stage plots
     results_png = exp_dir / "results.png"
     if results_png.exists():
@@ -296,6 +306,19 @@ def main():
 
     # Build reliable execution command avoiding YOLOv7 opt.yaml resume bug
     if opt.resume and os.path.exists(weights_path):
+        # Guarantee opt.yaml exists in current working dir and checkpoint dir
+        if not os.path.exists("opt.yaml"):
+            for cand in [Path(opt.checkpoint_dir) / "opt.yaml", Path(opt.drive_dir) / "checkpoints" / "opt.yaml" if opt.drive_dir else None, Path("runs/train/stage_1/opt.yaml")]:
+                if cand and cand.exists():
+                    shutil.copy(cand, "opt.yaml")
+                    break
+        if not os.path.exists("opt.yaml"):
+            # Synthesize minimal valid opt.yaml
+            import yaml
+            opt_dict = vars(opt)
+            with open("opt.yaml", "w") as f:
+                yaml.dump(opt_dict, f, default_flow_style=False)
+
         cmd = [
             sys.executable,
             "train.py",
