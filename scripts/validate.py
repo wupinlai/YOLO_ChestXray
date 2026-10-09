@@ -25,6 +25,7 @@ def parse_opt():
     parser.add_argument("--project", default="runs/test", help="project output dir")
     parser.add_argument("--name", default="val_exp", help="experiment name")
     parser.add_argument("--reports-dir", default="reports", help="reports directory")
+    parser.add_argument("--drive-dir", default="", help="Google Drive experiment sync directory")
     return parser.parse_args()
 
 
@@ -48,17 +49,13 @@ def archive_validation_artifacts(exp_dir: Path, reports_dir: str):
             print(f"[ARCHIVE] Saved validation artifact: {dst}")
 
 
-def resolve_weights_path(weights_path: str) -> str:
+def resolve_weights_path(weights_path: str, drive_dir: str = "") -> str:
     """Auto-resolve weights across local checkpoints, Google Drive, runs directory, and pretrained weights."""
     if os.path.exists(weights_path):
         return weights_path
 
     # Check candidates
-    drive_dirs = [
-        "/content/drive/MyDrive/YOLO_ChestXray_Exp3_Medical",
-        "/content/drive/MyDrive/YOLO_ChestXray_Exp2_1024",
-        "/content/drive/MyDrive/YOLO_ChestXray"
-    ]
+    drive_dirs = [drive_dir] if drive_dir else []
     candidates = [
         weights_path,
         "checkpoints/best_model.pt",
@@ -109,7 +106,7 @@ def resolve_weights_path(weights_path: str) -> str:
 
 def main():
     opt = parse_opt()
-    resolved_weights = resolve_weights_path(opt.weights)
+    resolved_weights = resolve_weights_path(opt.weights, opt.drive_dir)
 
     print("=" * 70)
     print(f"🧪 Running Validation on Weights: {resolved_weights}")
