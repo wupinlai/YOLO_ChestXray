@@ -112,14 +112,16 @@ def patch_torch_load_in_files(yolov7_dir: str = ".", reports_dir: str = "reports
 
     header_patch = """
 # --- Plan 1 v4.0 PyTorch Compatibility Layer ---
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 import torch
 try:
     import numpy as np
     _sg = [getattr(np, 'ndarray', None), getattr(np, 'dtype', None)]
-    if hasattr(np, 'core') and hasattr(np.core, 'multiarray'):
-        _sg.append(getattr(np.core.multiarray, '_reconstruct', None))
     if hasattr(np, '_core') and hasattr(np._core, 'multiarray'):
         _sg.append(getattr(np._core.multiarray, '_reconstruct', None))
+    elif hasattr(np, 'core') and hasattr(np.core, 'multiarray'):
+        _sg.append(getattr(np.core.multiarray, '_reconstruct', None))
     _sg = [g for g in _sg if g is not None]
     if hasattr(torch.serialization, 'add_safe_globals'):
         torch.serialization.add_safe_globals(_sg)
@@ -328,6 +330,27 @@ def patch_yolov7_train_py_epochs(yolov7_dir: str = "."):
         print(f"[ENV FIX] Successfully patched {train_py.name} for bulletproof start_epoch calculation.")
 
 
+def patch_yolov7_train_py_lr(yolov7_dir: str = "."):
+    """Patch train.py in YOLOv7 to prevent KeyError: 'initial_lr' during optimizer warmup and ensure robust learning rate retrieval."""
+    train_py = Path(yolov7_dir) / "train.py"
+    if not train_py.exists():
+        return
+
+    with open(train_py, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    modified = False
+    # Target: x['initial_lr'] -> x.get('initial_lr', hyp['lr0'])
+    if "x['initial_lr'] * lf(epoch)" in content:
+        content = content.replace("x['initial_lr'] * lf(epoch)", "x.get('initial_lr', hyp.get('lr0', 0.01)) * lf(epoch)")
+        modified = True
+
+    if modified:
+        with open(train_py, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"[ENV FIX] Successfully patched {train_py.name} for safe learning rate retrieval (initial_lr KeyError prevention).")
+
+
 def setup_plan1_4_environment(yolov7_dir: str = ".", reports_dir: str = "reports"):
     """Main entrypoint for Plan 1 v4.0 environment setup & compatibility enforcement."""
     # Disable WANDB completely
@@ -339,6 +362,7 @@ def setup_plan1_4_environment(yolov7_dir: str = ".", reports_dir: str = "reports
     patch_yolov7_loss_py(yolov7_dir)
     patch_yolov7_train_py_resume(yolov7_dir)
     patch_yolov7_train_py_epochs(yolov7_dir)
+    patch_yolov7_train_py_lr(yolov7_dir)
     patch_torch_load_in_files(yolov7_dir, reports_dir)
     print("=" * 70)
     print("✅ [Plan 1 v4.0] YOLOv7 Legacy Compatibility Environment Ready")

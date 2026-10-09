@@ -389,15 +389,17 @@ def main():
 
     try:
         try:
-            from scripts.fix_yolov7_env import patch_torch_load_in_files, patch_yolov7_train_py_resume, patch_yolov7_train_py_epochs
+            from scripts.fix_yolov7_env import patch_torch_load_in_files, patch_yolov7_train_py_resume, patch_yolov7_train_py_epochs, patch_yolov7_train_py_lr
             patch_torch_load_in_files(".", opt.reports_dir)
             patch_yolov7_train_py_resume(".")
             patch_yolov7_train_py_epochs(".")
+            patch_yolov7_train_py_lr(".")
         except ImportError:
-            from fix_yolov7_env import patch_torch_load_in_files, patch_yolov7_train_py_resume, patch_yolov7_train_py_epochs
+            from fix_yolov7_env import patch_torch_load_in_files, patch_yolov7_train_py_resume, patch_yolov7_train_py_epochs, patch_yolov7_train_py_lr
             patch_torch_load_in_files(".", opt.reports_dir)
             patch_yolov7_train_py_resume(".")
             patch_yolov7_train_py_epochs(".")
+            patch_yolov7_train_py_lr(".")
     except Exception:
         pass
 
