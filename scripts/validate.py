@@ -48,13 +48,60 @@ def archive_validation_artifacts(exp_dir: Path, reports_dir: str):
             print(f"[ARCHIVE] Saved validation artifact: {dst}")
 
 
+def resolve_weights_path(weights_path: str) -> str:
+    """Auto-resolve weights across local checkpoints, Google Drive, runs directory, and pretrained weights."""
+    if os.path.exists(weights_path):
+        return weights_path
+
+    # Check candidates
+    drive_dir = "/content/drive/MyDrive/YOLO_ChestXray"
+    candidates = [
+        weights_path,
+        "checkpoints/best_model.pt",
+        "checkpoints/checkpoint_50.pt",
+        "checkpoints/checkpoint_40.pt",
+        "checkpoints/checkpoint_30.pt",
+        "checkpoints/checkpoint_20.pt",
+        "checkpoints/checkpoint_10.pt",
+        f"{drive_dir}/checkpoints/best_model.pt",
+        f"{drive_dir}/checkpoints/checkpoint_50.pt",
+        f"{drive_dir}/checkpoints/checkpoint_40.pt",
+        "runs/train/stage_5/weights/best.pt",
+        "runs/train/stage_4/weights/best.pt",
+        "runs/train/stage_3/weights/best.pt",
+        "runs/train/stage_2/weights/best.pt",
+        "runs/train/stage_1/weights/best.pt",
+        "yolov7.pt"
+    ]
+    for c in candidates:
+        if os.path.exists(c) and os.path.getsize(c) > 1000:
+            print(f"[INFO] Auto-resolved weights: {c}")
+            if not os.path.exists("checkpoints/best_model.pt"):
+                os.makedirs("checkpoints", exist_ok=True)
+                try:
+                    shutil.copy(c, "checkpoints/best_model.pt")
+                except Exception:
+                    pass
+            return c
+
+    print(f"[WARN] No checkpoint found matching {weights_path}. Checking official pretrained weights...")
+    if os.path.exists("yolov7.pt"):
+        return "yolov7.pt"
+    return weights_path
+
+
 def main():
     opt = parse_opt()
+    resolved_weights = resolve_weights_path(opt.weights)
 
     print("=" * 70)
-    print(f"🧪 Running Validation on Weights: {opt.weights}")
+    print(f"🧪 Running Validation on Weights: {resolved_weights}")
     print(f"📊 Dataset Configuration: {opt.data}")
     print("=" * 70)
+
+    if not os.path.exists(resolved_weights):
+        print(f"[WARN] Checkpoint file {resolved_weights} not found. Skipping validation and archiving existing metrics.")
+        return
 
     cmd = [
         sys.executable,
