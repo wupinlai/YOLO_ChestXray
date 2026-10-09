@@ -57,7 +57,7 @@ def parse_opt():
     parser.add_argument("--checkpoint-dir", type=str, default="checkpoints", help="checkpoint archive directory")
     parser.add_argument("--reports-dir", type=str, default="reports", help="reports directory")
     parser.add_argument("--drive-dir", type=str, default="", help="Google Drive experiment sync directory")
-    parser.add_argument("--force", action="store_true", help="force training stage even if checkpoint exists")
+    parser.add_argument("--skip-existing", action="store_true", help="skip stage if target checkpoint already exists")
     return parser.parse_args()
 
 
@@ -177,14 +177,14 @@ def update_metrics_and_lr(exp_dir: Path, reports_dir: str):
             print(f"[SUCCESS] Saved learning rate curve: {lr_plot}")
 
 
-def check_stage_already_completed(stage: int, epochs: int, checkpoint_dir: str, reports_dir: str, drive_dir: str = "", force: bool = False) -> bool:
-    """Check if the current stage has already been trained in this experiment run."""
-    if force:
+def check_stage_already_completed(stage: int, epochs: int, checkpoint_dir: str, reports_dir: str, drive_dir: str = "", skip_existing: bool = False) -> bool:
+    """Check if the current stage has already been trained and should be skipped."""
+    if not skip_existing:
         return False
 
     target_ckpt = Path(checkpoint_dir) / f"checkpoint_{epochs}.pt"
 
-    # Only sync from the current experiment's Google Drive folder if explicitly specified
+    # Sync from current experiment's Google Drive folder if available
     if drive_dir and os.path.exists(drive_dir):
         drive_ckpt = Path(drive_dir) / "checkpoints" / f"checkpoint_{epochs}.pt"
         drive_best = Path(drive_dir) / "checkpoints" / "best_model.pt"
@@ -269,7 +269,7 @@ def main():
     opt = parse_opt()
 
     # 1. Check if this stage was already completed before running
-    if check_stage_already_completed(opt.stage, opt.epochs, opt.checkpoint_dir, opt.reports_dir, opt.drive_dir, opt.force):
+    if check_stage_already_completed(opt.stage, opt.epochs, opt.checkpoint_dir, opt.reports_dir, opt.drive_dir, opt.skip_existing):
         return
 
     print("=" * 70)
