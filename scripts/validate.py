@@ -54,7 +54,11 @@ def resolve_weights_path(weights_path: str) -> str:
         return weights_path
 
     # Check candidates
-    drive_dirs = ["/content/drive/MyDrive/YOLO_ChestXray_Exp2_1024", "/content/drive/MyDrive/YOLO_ChestXray"]
+    drive_dirs = [
+        "/content/drive/MyDrive/YOLO_ChestXray_Exp3_Medical",
+        "/content/drive/MyDrive/YOLO_ChestXray_Exp2_1024",
+        "/content/drive/MyDrive/YOLO_ChestXray"
+    ]
     candidates = [
         weights_path,
         "checkpoints/best_model.pt",

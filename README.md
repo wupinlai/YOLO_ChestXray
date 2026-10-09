@@ -12,12 +12,13 @@
 
 **YOLO_ChestXray** applies the state-of-the-art **YOLOv7** object detection architecture to detect and localize multiple thoracic pathologies on chest radiographs (CXR).
 
-### 🧪 Dual Experiment Tracks (科學對照實驗組設計)
+### 🧪 Triple Experiment Tracks (三組科學對照實驗設計)
 
-| 實驗組別 | 輸入解析度 | 總訓練輪次 | 批次大小 | 專屬 Notebook 連結 | 說明 |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Exp 1: 初始實驗組** (Baseline) | `640 x 640` | `150 Epochs` | `16` | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/wupinlai/YOLO_ChestXray/blob/main/notebooks/YOLO_ChestXray_Colab_Training.ipynb) | 原始基準組，保留全部報告與權重 |
-| **Exp 2: 驗證對照組** (High-Res) | **`1024 x 1024`** | `150 Epochs` | `8` | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/wupinlai/YOLO_ChestXray/blob/main/notebooks/YOLO_ChestXray_Colab_Exp2_1024x1024.ipynb) | 高解析度驗證組，專攻微小病灶偵測 |
+| 實驗組別 | 輸入解析度 | 總訓練輪次 | 批次大小 | 關鍵優化機制 | 專屬 Notebook 連結 | 說明 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Exp 1: 初始實驗組** (Baseline) | `640 x 640` | `150 Epochs` | `16` | 預設 COCO 超參數 | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/wupinlai/YOLO_ChestXray/blob/main/notebooks/YOLO_ChestXray_Colab_Training.ipynb) | 原始基準組，保留全部報告與權重 |
+| **Exp 2: 驗證對照組** (High-Res) | **`1024 x 1024`** | `150 Epochs` | `8` | 1024 高解析度 + 5 階段 Resume | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/wupinlai/YOLO_ChestXray/blob/main/notebooks/YOLO_ChestXray_Colab_Exp2_1024x1024.ipynb) | 高解析度驗證組，專攻微小病灶偵測 |
+| **Exp 3: 醫學專項最佳化組** (Medical) | **`1024 x 1024`** | `150 Epochs` | `8` | **CLAHE 自適應直方圖 + `hyp.medical.yaml` (`lr0:0.005`, `lrf:0.01`, 灰階增強)** | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/wupinlai/YOLO_ChestXray/blob/main/notebooks/YOLO_ChestXray_Colab_Exp3_Medical_Optimized.ipynb) | 醫學專項最佳化組，針對胸部 X 光特性深度調優 |
 
 ---
 

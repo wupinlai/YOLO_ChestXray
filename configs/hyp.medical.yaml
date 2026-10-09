@@ -1,0 +1,33 @@
+# Hyperparameters for Chest X-ray Pathology Detection (Medical Domain Optimized)
+# Designed for YOLOv7 at 1024x1024 Resolution on Grayscale Thoracic Radiographs
+
+lr0: 0.005  # Initial learning rate (SGD=1E-2, Adam=1E-3; reduced to 0.005 for gentle medical transfer learning)
+lrf: 0.01   # Final OneCycleLR learning rate fraction (drops to 0.00005 for fine-grained convergence)
+momentum: 0.937  # SGD momentum/Adam beta1
+weight_decay: 0.0005  # Optimizer weight decay
+warmup_epochs: 3.0  # Warmup epochs (fractions ok)
+warmup_momentum: 0.8  # Warmup initial momentum
+warmup_bias_lr: 0.1  # Warmup initial bias lr
+box: 0.05  # Box loss gain
+cls: 0.5  # Cls loss gain
+cls_pw: 1.0  # Cls BCELoss positive_weight
+obj: 1.0  # Obj loss gain (scale with pixels)
+obj_pw: 1.0  # Obj BCELoss positive_weight
+iou_t: 0.20  # IoU training threshold
+anchor_t: 4.0  # Anchor-multiple threshold (AutoAnchor sensitivity)
+fl_gamma: 0.0  # Focal loss gamma (efficient for class balance)
+
+# Augmentations Tuned Specifically for Thoracic Radiographs:
+hsv_h: 0.0  # Hue augmentation disabled (Chest radiographs are monochromatic grayscale)
+hsv_s: 0.0  # Saturation augmentation disabled (Prevents artificial chromatic noise)
+hsv_v: 0.2  # Value/Brightness augmentation (Simulates varying tube current / penetration exposure)
+degrees: 3.0  # Image rotation (+/- deg, simulates slight patient posture tilt)
+translate: 0.05  # Image translation (+/- fraction)
+scale: 0.1  # Image scale (+/- gain, maintains anatomical proportions)
+shear: 0.0  # Image shear disabled (Avoids distortion of bone & organ anatomy)
+perspective: 0.0  # Image perspective disabled
+flipud: 0.0  # Flip up-down disabled (Thoracic anatomy strictly maintains apex-to-base orientation)
+fliplr: 0.5  # Flip left-right (0.5 probability)
+mosaic: 0.5  # Mosaic augmentation (0.5 probability, prevents excessive cluttering of pulmonary fields)
+mixup: 0.0  # Mixup disabled (Blending two distinct radiographs generates non-physiological phantom lesions)
+copy_paste: 0.0  # Segment copy-paste disabled

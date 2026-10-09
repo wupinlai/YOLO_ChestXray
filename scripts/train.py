@@ -281,11 +281,17 @@ def main():
         weights_path = opt.resume
         # If resume path doesn't exist locally, check Drive
         if not os.path.exists(weights_path):
-            drive_ckpt = Path(f"/content/drive/MyDrive/YOLO_ChestXray/{opt.resume}")
-            if drive_ckpt.exists():
-                os.makedirs(os.path.dirname(weights_path), exist_ok=True)
-                shutil.copy(drive_ckpt, weights_path)
-                print(f"[RESUME] Retrieved {opt.resume} from Google Drive")
+            for dd in [
+                "/content/drive/MyDrive/YOLO_ChestXray_Exp3_Medical",
+                "/content/drive/MyDrive/YOLO_ChestXray_Exp2_1024",
+                "/content/drive/MyDrive/YOLO_ChestXray"
+            ]:
+                drive_ckpt = Path(f"{dd}/{opt.resume}")
+                if drive_ckpt.exists():
+                    os.makedirs(os.path.dirname(weights_path), exist_ok=True)
+                    shutil.copy(drive_ckpt, weights_path)
+                    print(f"[RESUME] Retrieved {opt.resume} from Google Drive: {drive_ckpt}")
+                    break
 
     # Build reliable execution command avoiding YOLOv7 opt.yaml resume bug
     if opt.resume and os.path.exists(weights_path):
