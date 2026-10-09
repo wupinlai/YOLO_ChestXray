@@ -113,10 +113,10 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
 
         # PAGE 3: Dataset Analysis
         fig, ax = create_page_with_header("3. Dataset Analysis & Statistical Profiling", "Pathology distributions, bounding box scales, and image resolutions", 3)
-        c_dist = os.path.join(reports_dir, "class_distribution.png")
-        if not os.path.exists(c_dist): c_dist = os.path.join(reports_dir, "dataset_analysis", "class_distribution.png")
-        b_dist = os.path.join(reports_dir, "bbox_size_distribution.png")
-        if not os.path.exists(b_dist): b_dist = os.path.join(reports_dir, "dataset_analysis", "bbox_size_distribution.png")
+        c_dist = os.path.join(reports_dir, "dataset_analysis", "class_distribution.png")
+        if not os.path.exists(c_dist): c_dist = os.path.join(reports_dir, "class_distribution.png")
+        b_dist = os.path.join(reports_dir, "dataset_analysis", "bbox_size_distribution.png")
+        if not os.path.exists(b_dist): b_dist = os.path.join(reports_dir, "bbox_size_distribution.png")
         ax1 = fig.add_axes([0.08, 0.12, 0.40, 0.72])
         ax2 = fig.add_axes([0.52, 0.12, 0.40, 0.72])
         ax1.set_axis_off(); ax2.set_axis_off()

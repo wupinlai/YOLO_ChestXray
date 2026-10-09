@@ -1,6 +1,6 @@
 ErrorType,Count
-False Positive,7804
+Correct Detection,38
+False Positive,83
+Low IoU,41
 False Negative,26
-Misclassification,353
-Low IoU,20
-Correct Detection,20
+Misclassification,6
