@@ -276,20 +276,31 @@ def main():
                 print(f"[RESUME] Retrieved {opt.resume} from Google Drive")
 
     # Build reliable execution command avoiding YOLOv7 opt.yaml resume bug
-    cmd = [
-        sys.executable,
-        "train.py",
-        f"--weights {weights_path}",
-        f"--cfg {opt.cfg}",
-        f"--data {opt.data}",
-        f"--hyp {opt.hyp}",
-        f"--epochs {opt.epochs}",
-        f"--batch-size {opt.batch_size}",
-        f"--img-size {' '.join(map(str, opt.img_size))}",
-        f"--project {opt.project}",
-        f"--name {opt.name}",
-        "--exist-ok",
-    ]
+    if opt.resume and os.path.exists(weights_path):
+        cmd = [
+            sys.executable,
+            "train.py",
+            f"--resume {weights_path}",
+            f"--epochs {opt.epochs}",
+            f"--project {opt.project}",
+            f"--name {opt.name}",
+            "--exist-ok",
+        ]
+    else:
+        cmd = [
+            sys.executable,
+            "train.py",
+            f"--weights {weights_path}",
+            f"--cfg {opt.cfg}",
+            f"--data {opt.data}",
+            f"--hyp {opt.hyp}",
+            f"--epochs {opt.epochs}",
+            f"--batch-size {opt.batch_size}",
+            f"--img-size {' '.join(map(str, opt.img_size))}",
+            f"--project {opt.project}",
+            f"--name {opt.name}",
+            "--exist-ok",
+        ]
     if opt.device:
         cmd.append(f"--device {opt.device}")
 
