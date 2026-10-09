@@ -308,16 +308,31 @@ def main():
     if opt.resume and os.path.exists(weights_path):
         # Guarantee opt.yaml exists in current working dir and checkpoint dir
         if not os.path.exists("opt.yaml"):
-            for cand in [Path(opt.checkpoint_dir) / "opt.yaml", Path(opt.drive_dir) / "checkpoints" / "opt.yaml" if opt.drive_dir else None, Path("runs/train/stage_1/opt.yaml")]:
+            for cand in [Path(opt.checkpoint_dir) / "opt.yaml", Path(opt.drive_dir) / "checkpoints" / "opt.yaml" if opt.drive_dir else None, Path("runs/train/stage_1/opt.yaml"), Path("runs/train/stage_2/opt.yaml")]:
                 if cand and cand.exists():
                     shutil.copy(cand, "opt.yaml")
                     break
         if not os.path.exists("opt.yaml"):
-            # Synthesize minimal valid opt.yaml
             import yaml
-            opt_dict = dict(vars(opt))
-            opt_dict['total_batch_size'] = opt.batch_size
+            opt_dict = {
+                'weights': weights_path, 'cfg': '', 'data': opt.data if hasattr(opt, 'data') else 'configs/chestxray.yaml',
+                'hyp': opt.hyp if hasattr(opt, 'hyp') else 'data/hyp.scratch.p5.yaml',
+                'epochs': opt.epochs, 'batch_size': opt.batch_size,
+                'img_size': list(opt.img_size) if isinstance(opt.img_size, (list, tuple)) else [1024, 1024],
+                'rect': False, 'resume': True, 'nosave': False, 'notest': False, 'noautoanchor': False,
+                'evolve': False, 'bucket': '', 'cache_images': False, 'image_weights': False,
+                'device': opt.device if hasattr(opt, 'device') else '', 'multi_scale': False,
+                'single_cls': False, 'adam': False, 'sync_bn': False, 'local_rank': -1, 'workers': 8,
+                'project': opt.project, 'entity': None, 'name': opt.name, 'exist_ok': True,
+                'quad': False, 'linear_lr': False, 'label_smoothing': 0.0, 'upload_dataset': False,
+                'bbox_interval': -1, 'save_period': -1, 'artifact_alias': 'latest', 'freeze': [0],
+                'v5_metric': False, 'world_size': 1, 'global_rank': -1,
+                'save_dir': f"{opt.project}/{opt.name}", 'total_batch_size': opt.batch_size
+            }
             with open("opt.yaml", "w") as f:
+                yaml.dump(opt_dict, f, default_flow_style=False)
+            os.makedirs(opt.checkpoint_dir, exist_ok=True)
+            with open(Path(opt.checkpoint_dir) / "opt.yaml", "w") as f:
                 yaml.dump(opt_dict, f, default_flow_style=False)
 
         cmd = [

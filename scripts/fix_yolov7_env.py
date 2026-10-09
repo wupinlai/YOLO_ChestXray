@@ -198,44 +198,73 @@ def patch_yolov7_train_py_resume(yolov7_dir: str = "."):
     with open(train_py, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Regex to match the entire original or partially patched resume block
-    # from 'with open(Path...' up to and including the '# reinstate' line
-    full_block_pattern = re.compile(
-        r"([ \t]*)(?:# --- Safe opt\.yaml resolution for resume ---[\s\S]*?|with open\(Path\([^)]+\)\.parent\.parent / ['\"]opt\.yaml['\"]\)[^\n]*:[\s\S]*?)opt\.cfg,\s*opt\.weights,\s*opt\.resume[^\n]*# reinstate",
+    # Regex matching if opt.resume: block entirely up to reinstate / logger.info
+    resume_block_pattern = re.compile(
+        r"([ \t]*if opt\.resume:[\s\S]*?)(opt\.cfg,\s*opt\.weights,\s*opt\.resume[^\n]*# reinstate[^\n]*\n|# -------------------------------------------\n)",
         re.MULTILINE
     )
 
-    replacement_block = """# --- Safe opt.yaml resolution for resume ---
-        _ckpt_target = ckpt if 'ckpt' in locals() else (chkpt if 'chkpt' in locals() else opt.resume)
+    replacement_block = """    if opt.resume:
+        # --- Plan 1 v4.0 Robust Resume Namespace Handler ---
+        _target_ckpt = opt.resume if isinstance(opt.resume, str) else (ckpt if 'ckpt' in locals() else (chkpt if 'chkpt' in locals() else ''))
+        assert os.path.isfile(_target_ckpt), f'ERROR: --resume checkpoint {_target_ckpt} does not exist'
+
         _opt_candidates = [
-            Path(_ckpt_target).parent.parent / 'opt.yaml',
-            Path(_ckpt_target).parent / 'opt.yaml',
-            Path('checkpoints/opt.yaml'),
+            Path(_target_ckpt).parent.parent / 'opt.yaml',
+            Path(_target_ckpt).parent / 'opt.yaml',
             Path('opt.yaml'),
+            Path('checkpoints/opt.yaml'),
             Path('runs/train/stage_1/opt.yaml'),
             Path('runs/train/stage_2/opt.yaml'),
+            Path('runs/train/stage_3/opt.yaml'),
+            Path('runs/train/stage_4/opt.yaml'),
         ]
         _opt_file = next((c for c in _opt_candidates if c.exists()), None)
+        _loaded_dict = {}
         if _opt_file is not None:
-            with open(_opt_file) as _f:
-                opt = argparse.Namespace(**yaml.load(_f, Loader=yaml.SafeLoader))
+            try:
+                with open(_opt_file, 'r', encoding='utf-8') as _f:
+                    _loaded = yaml.load(_f, Loader=yaml.SafeLoader)
+                    if isinstance(_loaded, dict):
+                        _loaded_dict = _loaded
+            except Exception:
+                pass
         else:
-            _d = torch.load(_ckpt_target, map_location='cpu')
-            if isinstance(_d, dict) and 'opt' in _d and _d['opt'] is not None:
-                opt = _d['opt'] if isinstance(_d['opt'], argparse.Namespace) else argparse.Namespace(**_d['opt'])
-            else:
-                opt = argparse.Namespace(epochs=opt.epochs, cfg='', weights='', data='configs/chestxray.yaml', batch_size=getattr(opt, 'batch_size', 8), img_size=getattr(opt, 'img_size', [1024, 1024]), hyp='data/hyp.scratch.p5.yaml', project='runs/train', name='exp', device='', exist_ok=True, single_cls=False, sync_bn=False, local_rank=-1, entity=None, upload_dataset=False, bbox_interval=-1, save_period=-1, artifact_alias='latest')
-        _tb = getattr(opt, 'total_batch_size', getattr(opt, 'batch_size', 8))
-        opt.cfg, opt.weights, opt.resume, opt.batch_size, opt.global_rank, opt.local_rank = '', _ckpt_target, True, _tb, *apriori
-        # -------------------------------------------"""
+            try:
+                _d = torch.load(_target_ckpt, map_location='cpu')
+                if isinstance(_d, dict) and 'opt' in _d and _d['opt'] is not None:
+                    _loaded_dict = _d['opt'] if isinstance(_d['opt'], dict) else vars(_d['opt'])
+            except Exception:
+                pass
 
-    if full_block_pattern.search(content):
-        content = full_block_pattern.sub(replacement_block, content, count=1)
-        with open(train_py, "w", encoding="utf-8") as f:
-            f.write(content)
-        print(f"[ENV FIX] Successfully patched {train_py.name} for safe resume opt.yaml lookup.")
-    elif "Safe opt.yaml resolution for resume" in content and "yaml.load(f, Loader=yaml.SafeLoader)" in content:
-        # Fallback cleanup for any leftover old replacement patterns
+        _defaults = {
+            'weights': _target_ckpt, 'cfg': '', 'data': 'configs/chestxray.yaml', 'hyp': 'data/hyp.scratch.p5.yaml',
+            'epochs': 60, 'batch_size': 8, 'img_size': [1024, 1024], 'rect': False, 'resume': True,
+            'nosave': False, 'notest': False, 'noautoanchor': False, 'evolve': False, 'bucket': '',
+            'cache_images': False, 'image_weights': False, 'device': '', 'multi_scale': False,
+            'single_cls': False, 'adam': False, 'sync_bn': False, 'local_rank': -1, 'workers': 8,
+            'project': 'runs/train', 'entity': None, 'name': 'exp', 'exist_ok': True, 'quad': False,
+            'linear_lr': False, 'label_smoothing': 0.0, 'upload_dataset': False, 'bbox_interval': -1,
+            'save_period': -1, 'artifact_alias': 'latest', 'freeze': [0], 'v5_metric': False,
+            'world_size': 1, 'global_rank': -1, 'save_dir': 'runs/train/exp', 'total_batch_size': 8
+        }
+        _current_opt_dict = vars(opt) if hasattr(opt, '__dict__') else {}
+        _merged = {**_defaults, **_loaded_dict, **{k: v for k, v in _current_opt_dict.items() if v is not None and v != ''}}
+        _merged['weights'] = _target_ckpt
+        _merged['resume'] = True
+        _merged['cfg'] = ''
+        _merged['total_batch_size'] = _merged.get('total_batch_size', _merged.get('batch_size', 8))
+        _merged['save_dir'] = str(Path(_merged.get('project', 'runs/train')) / _merged.get('name', 'exp'))
+
+        opt = argparse.Namespace(**_merged)
+        _tb = getattr(opt, 'total_batch_size', getattr(opt, 'batch_size', 8))
+        opt.cfg, opt.weights, opt.resume, opt.batch_size, opt.global_rank, opt.local_rank = '', _target_ckpt, True, _tb, *apriori
+        # ---------------------------------------------------
+"""
+
+    if resume_block_pattern.search(content):
+        content = resume_block_pattern.sub(replacement_block, content, count=1)
+        # Clean any accidental duplicate lines
         content = re.sub(
             r"([ \t]*opt = argparse\.Namespace\(\*\*yaml\.load\(f, Loader=yaml\.SafeLoader\)\)[^\n]*)",
             r"# \1 (cleaned up)",
@@ -243,7 +272,7 @@ def patch_yolov7_train_py_resume(yolov7_dir: str = "."):
         )
         with open(train_py, "w", encoding="utf-8") as f:
             f.write(content)
-        print(f"[ENV FIX] Successfully cleaned up {train_py.name} resume block.")
+        print(f"[ENV FIX] Successfully patched {train_py.name} for safe resume opt.yaml lookup.")
 
 
 def setup_plan1_4_environment(yolov7_dir: str = ".", reports_dir: str = "reports"):
