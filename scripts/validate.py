@@ -54,25 +54,38 @@ def resolve_weights_path(weights_path: str) -> str:
         return weights_path
 
     # Check candidates
-    drive_dir = "/content/drive/MyDrive/YOLO_ChestXray"
+    drive_dirs = ["/content/drive/MyDrive/YOLO_ChestXray_Exp2_1024", "/content/drive/MyDrive/YOLO_ChestXray"]
     candidates = [
         weights_path,
         "checkpoints/best_model.pt",
+        "checkpoints/checkpoint_150.pt",
+        "checkpoints/checkpoint_120.pt",
+        "checkpoints/checkpoint_90.pt",
+        "checkpoints/checkpoint_60.pt",
         "checkpoints/checkpoint_50.pt",
         "checkpoints/checkpoint_40.pt",
         "checkpoints/checkpoint_30.pt",
         "checkpoints/checkpoint_20.pt",
         "checkpoints/checkpoint_10.pt",
-        f"{drive_dir}/checkpoints/best_model.pt",
-        f"{drive_dir}/checkpoints/checkpoint_50.pt",
-        f"{drive_dir}/checkpoints/checkpoint_40.pt",
+    ]
+    for dd in drive_dirs:
+        candidates.extend([
+            f"{dd}/checkpoints/best_model.pt",
+            f"{dd}/checkpoints/checkpoint_150.pt",
+            f"{dd}/checkpoints/checkpoint_120.pt",
+            f"{dd}/checkpoints/checkpoint_90.pt",
+            f"{dd}/checkpoints/checkpoint_60.pt",
+            f"{dd}/checkpoints/checkpoint_50.pt",
+            f"{dd}/checkpoints/checkpoint_40.pt",
+        ])
+    candidates.extend([
         "runs/train/stage_5/weights/best.pt",
         "runs/train/stage_4/weights/best.pt",
         "runs/train/stage_3/weights/best.pt",
         "runs/train/stage_2/weights/best.pt",
         "runs/train/stage_1/weights/best.pt",
         "yolov7.pt"
-    ]
+    ])
     for c in candidates:
         if os.path.exists(c) and os.path.getsize(c) > 1000:
             print(f"[INFO] Auto-resolved weights: {c}")

@@ -8,17 +8,16 @@
 
 ---
 
-## 📌 Project Overview
+## 📌 Project Overview & Experiment Groups
 
-**YOLO_ChestXray** applies the state-of-the-art **YOLOv7** object detection architecture to detect and localize multiple thoracic pathologies on chest radiographs (CXR). Utilizing the annotated ChestXray8 dataset with bounding-box annotations across 14 distinct disease classes, this repository provides an end-to-end pipeline covering:
+**YOLO_ChestXray** applies the state-of-the-art **YOLOv7** object detection architecture to detect and localize multiple thoracic pathologies on chest radiographs (CXR).
 
-- 📊 **Dataset Preparation & Verification** (Kaggle API integration & integrity checks)
-- 🚀 **Stage-wise Resumable Training** (5 stages, 10 epochs/stage, total 50 epochs)
-- 📈 **Comprehensive Validation & Metrics Tracking** (`metrics_history.csv`, PR/F1 Curves, Confusion Matrix)
-- 🧪 **Standardized Error & IoU Analysis** (Automated annotation of FP, FN, MC, Low IoU with color standards & legends)
-- 🖼️ **Error Galleries & Visualizations** (2x2 Grid layouts, worst IoU cases, top detections)
-- 📄 **Automated 10+ Page PDF Final Report** (`reports/final_report.pdf`, 300 DPI)
-- 🏷️ **Checkpoint & Model Version Control** via GitHub Releases & Cloud Storage
+### 🧪 Dual Experiment Tracks (科學對照實驗組設計)
+
+| 實驗組別 | 輸入解析度 | 總訓練輪次 | 批次大小 | 專屬 Notebook 連結 | 說明 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Exp 1: 初始實驗組** (Baseline) | `640 x 640` | `150 Epochs` | `16` | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/wupinlai/YOLO_ChestXray/blob/main/notebooks/YOLO_ChestXray_Colab_Training.ipynb) | 原始基準組，保留全部報告與權重 |
+| **Exp 2: 驗證對照組** (High-Res) | **`1024 x 1024`** | `150 Epochs` | `8` | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/wupinlai/YOLO_ChestXray/blob/main/notebooks/YOLO_ChestXray_Colab_Exp2_1024x1024.ipynb) | 高解析度驗證組，專攻微小病灶偵測 |
 
 ---
 

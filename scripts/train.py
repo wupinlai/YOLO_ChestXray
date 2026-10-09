@@ -175,29 +175,38 @@ def update_metrics_and_lr(exp_dir: Path, reports_dir: str):
             print(f"[SUCCESS] Saved learning rate curve: {lr_plot}")
 
 
-def check_stage_already_completed(stage: int, checkpoint_dir: str, reports_dir: str) -> bool:
+def check_stage_already_completed(stage: int, epochs: int, checkpoint_dir: str, reports_dir: str) -> bool:
     """Check if the current stage has already been trained and archived (locally or in Google Drive)."""
-    target_ckpt = Path(checkpoint_dir) / f"checkpoint_{stage * 10}.pt"
-    drive_dir = Path("/content/drive/MyDrive/YOLO_ChestXray")
-    drive_ckpt = drive_dir / "checkpoints" / f"checkpoint_{stage * 10}.pt"
-    drive_metrics = drive_dir / "reports" / "metrics_history.csv"
+    target_ckpts = [
+        Path(checkpoint_dir) / f"checkpoint_{epochs}.pt",
+        Path(checkpoint_dir) / f"checkpoint_{stage * 10}.pt",
+        Path(checkpoint_dir) / f"checkpoint_{stage * 30}.pt"
+    ]
+    
+    # Check Google Drive locations
+    drive_dirs = [
+        Path("/content/drive/MyDrive/YOLO_ChestXray_Exp2_1024"),
+        Path("/content/drive/MyDrive/YOLO_ChestXray")
+    ]
+    
+    for drive_dir in drive_dirs:
+        for ckpt_name in [f"checkpoint_{epochs}.pt", f"checkpoint_{stage * 10}.pt", f"checkpoint_{stage * 30}.pt"]:
+            drive_ckpt = drive_dir / "checkpoints" / ckpt_name
+            if drive_ckpt.exists() and drive_ckpt.stat().st_size > 0:
+                os.makedirs(checkpoint_dir, exist_ok=True)
+                for t in target_ckpts:
+                    if not t.exists():
+                        shutil.copy(drive_ckpt, t)
+                print(f"[CACHE] Restored stage {stage} checkpoint from Google Drive: {drive_ckpt}")
+                break
 
-    # Sync from Google Drive if available
-    if not target_ckpt.exists() and drive_ckpt.exists() and drive_ckpt.stat().st_size > 0:
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        shutil.copy(drive_ckpt, target_ckpt)
-        print(f"[CACHE] Restored stage {stage} checkpoint from Google Drive: {drive_ckpt}")
-
-    if drive_metrics.exists() and not (Path(reports_dir) / "metrics_history.csv").exists():
-        os.makedirs(reports_dir, exist_ok=True)
-        shutil.copy(drive_metrics, Path(reports_dir) / "metrics_history.csv")
-
-    if target_ckpt.exists() and target_ckpt.stat().st_size > 0:
-        print("=" * 70)
-        print(f"✨ [SKIP] Stage {stage} result already exists ({target_ckpt.name})!")
-        print(f"⏩ Skipping Stage {stage} training and proceeding directly to the next step.")
-        print("=" * 70)
-        return True
+    for t in target_ckpts:
+        if t.exists() and t.stat().st_size > 0:
+            print("=" * 70)
+            print(f"✨ [SKIP] Stage {stage} result already exists ({t.name})!")
+            print(f"⏩ Skipping Stage {stage} training and proceeding directly to the next step.")
+            print("=" * 70)
+            return True
     return False
 
 
@@ -216,7 +225,7 @@ def resolve_exp_dir(project: str, name: str) -> Path:
     return exp_dir
 
 
-def archive_and_verify_checkpoints(exp_dir: Path, stage: int, checkpoint_dir: str, reports_dir: str):
+def archive_and_verify_checkpoints(exp_dir: Path, stage: int, epochs: int, checkpoint_dir: str, reports_dir: str):
     """Verify and archive checkpoint_xx.pt and best_model.pt."""
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(reports_dir, exist_ok=True)
@@ -230,12 +239,15 @@ def archive_and_verify_checkpoints(exp_dir: Path, stage: int, checkpoint_dir: st
         print(f"[ERROR] Checkpoint verification failed: Neither {last_pt} nor {best_pt} exist in {exp_dir}!")
         sys.exit(1)
 
-    target_stage_ckpt = Path(checkpoint_dir) / f"checkpoint_{stage * 10}.pt"
+    target_stage_ckpt = Path(checkpoint_dir) / f"checkpoint_{epochs}.pt"
+    target_stage_legacy = Path(checkpoint_dir) / f"checkpoint_{stage * 10}.pt"
     target_best_ckpt = Path(checkpoint_dir) / "best_model.pt"
     target_last_ckpt = Path(checkpoint_dir) / "last.pt"
 
     if last_pt.exists():
         shutil.copy(last_pt, target_stage_ckpt)
+        if not target_stage_legacy.exists():
+            shutil.copy(last_pt, target_stage_legacy)
         shutil.copy(last_pt, target_last_ckpt)
         print(f"[SUCCESS] Archived stage checkpoint: {target_stage_ckpt}")
 
@@ -255,7 +267,7 @@ def main():
     opt = parse_opt()
 
     # 1. Check if this stage was already completed before running
-    if check_stage_already_completed(opt.stage, opt.checkpoint_dir, opt.reports_dir):
+    if check_stage_already_completed(opt.stage, opt.epochs, opt.checkpoint_dir, opt.reports_dir):
         return
 
     print("=" * 70)
@@ -313,7 +325,7 @@ def main():
 
     if exit_code == 0:
         exp_dir = resolve_exp_dir(opt.project, opt.name)
-        archive_and_verify_checkpoints(exp_dir, opt.stage, opt.checkpoint_dir, opt.reports_dir)
+        archive_and_verify_checkpoints(exp_dir, opt.stage, opt.epochs, opt.checkpoint_dir, opt.reports_dir)
         update_metrics_and_lr(exp_dir, opt.reports_dir)
         print(f"[SUCCESS] Stage {opt.stage} training finished and verified successfully.")
     else:
