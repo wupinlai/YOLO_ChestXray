@@ -56,6 +56,8 @@ def parse_opt():
     parser.add_argument("--stage", type=int, default=1, help="current training stage (1 to 5)")
     parser.add_argument("--checkpoint-dir", type=str, default="checkpoints", help="checkpoint archive directory")
     parser.add_argument("--reports-dir", type=str, default="reports", help="reports directory")
+    parser.add_argument("--drive-dir", type=str, default="", help="Google Drive experiment sync directory")
+    parser.add_argument("--force", action="store_true", help="force training stage even if checkpoint exists")
     return parser.parse_args()
 
 
@@ -175,38 +177,38 @@ def update_metrics_and_lr(exp_dir: Path, reports_dir: str):
             print(f"[SUCCESS] Saved learning rate curve: {lr_plot}")
 
 
-def check_stage_already_completed(stage: int, epochs: int, checkpoint_dir: str, reports_dir: str) -> bool:
-    """Check if the current stage has already been trained and archived (locally or in Google Drive)."""
-    target_ckpts = [
-        Path(checkpoint_dir) / f"checkpoint_{epochs}.pt",
-        Path(checkpoint_dir) / f"checkpoint_{stage * 10}.pt",
-        Path(checkpoint_dir) / f"checkpoint_{stage * 30}.pt"
-    ]
-    
-    # Check Google Drive locations
-    drive_dirs = [
-        Path("/content/drive/MyDrive/YOLO_ChestXray_Exp2_1024"),
-        Path("/content/drive/MyDrive/YOLO_ChestXray")
-    ]
-    
-    for drive_dir in drive_dirs:
-        for ckpt_name in [f"checkpoint_{epochs}.pt", f"checkpoint_{stage * 10}.pt", f"checkpoint_{stage * 30}.pt"]:
-            drive_ckpt = drive_dir / "checkpoints" / ckpt_name
-            if drive_ckpt.exists() and drive_ckpt.stat().st_size > 0:
-                os.makedirs(checkpoint_dir, exist_ok=True)
-                for t in target_ckpts:
-                    if not t.exists():
-                        shutil.copy(drive_ckpt, t)
-                print(f"[CACHE] Restored stage {stage} checkpoint from Google Drive: {drive_ckpt}")
-                break
+def check_stage_already_completed(stage: int, epochs: int, checkpoint_dir: str, reports_dir: str, drive_dir: str = "", force: bool = False) -> bool:
+    """Check if the current stage has already been trained in this experiment run."""
+    if force:
+        return False
 
-    for t in target_ckpts:
-        if t.exists() and t.stat().st_size > 0:
-            print("=" * 70)
-            print(f"✨ [SKIP] Stage {stage} result already exists ({t.name})!")
-            print(f"⏩ Skipping Stage {stage} training and proceeding directly to the next step.")
-            print("=" * 70)
-            return True
+    target_ckpt = Path(checkpoint_dir) / f"checkpoint_{epochs}.pt"
+
+    # Only sync from the current experiment's Google Drive folder if explicitly specified
+    if drive_dir and os.path.exists(drive_dir):
+        drive_ckpt = Path(drive_dir) / "checkpoints" / f"checkpoint_{epochs}.pt"
+        drive_best = Path(drive_dir) / "checkpoints" / "best_model.pt"
+        drive_metrics = Path(drive_dir) / "reports" / "metrics_history.csv"
+
+        if not target_ckpt.exists() and drive_ckpt.exists() and drive_ckpt.stat().st_size > 0:
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            shutil.copy(drive_ckpt, target_ckpt)
+            if drive_best.exists() and not (Path(checkpoint_dir) / "best_model.pt").exists():
+                shutil.copy(drive_best, Path(checkpoint_dir) / "best_model.pt")
+            print(f"[CACHE] Restored stage {stage} checkpoint from Google Drive: {drive_ckpt}")
+
+        if drive_metrics.exists() and not (Path(reports_dir) / "metrics_history.csv").exists():
+            os.makedirs(reports_dir, exist_ok=True)
+            shutil.copy(drive_metrics, Path(reports_dir) / "metrics_history.csv")
+
+    if target_ckpt.exists() and target_ckpt.stat().st_size > 0:
+        if not (Path(checkpoint_dir) / "best_model.pt").exists():
+            shutil.copy(target_ckpt, Path(checkpoint_dir) / "best_model.pt")
+        print("=" * 70)
+        print(f"✨ [SKIP] Stage {stage} result already exists ({target_ckpt.name})!")
+        print(f"⏩ Skipping Stage {stage} training and proceeding directly to the next step.")
+        print("=" * 70)
+        return True
     return False
 
 
@@ -267,7 +269,7 @@ def main():
     opt = parse_opt()
 
     # 1. Check if this stage was already completed before running
-    if check_stage_already_completed(opt.stage, opt.epochs, opt.checkpoint_dir, opt.reports_dir):
+    if check_stage_already_completed(opt.stage, opt.epochs, opt.checkpoint_dir, opt.reports_dir, opt.drive_dir, opt.force):
         return
 
     print("=" * 70)
@@ -281,16 +283,15 @@ def main():
         weights_path = opt.resume
         # If resume path doesn't exist locally, check Drive
         if not os.path.exists(weights_path):
-            for dd in [
-                "/content/drive/MyDrive/YOLO_ChestXray_Exp3_Medical",
-                "/content/drive/MyDrive/YOLO_ChestXray_Exp2_1024",
-                "/content/drive/MyDrive/YOLO_ChestXray"
-            ]:
-                drive_ckpt = Path(f"{dd}/{opt.resume}")
-                if drive_ckpt.exists():
+            candidates = []
+            if opt.drive_dir:
+                candidates.append(Path(f"{opt.drive_dir}/{opt.resume}"))
+                candidates.append(Path(f"{opt.drive_dir}/checkpoints/{Path(opt.resume).name}"))
+            for cand in candidates:
+                if cand.exists():
                     os.makedirs(os.path.dirname(weights_path), exist_ok=True)
-                    shutil.copy(drive_ckpt, weights_path)
-                    print(f"[RESUME] Retrieved {opt.resume} from Google Drive: {drive_ckpt}")
+                    shutil.copy(cand, weights_path)
+                    print(f"[RESUME] Retrieved {opt.resume} from Google Drive: {cand}")
                     break
 
     # Build reliable execution command avoiding YOLOv7 opt.yaml resume bug
