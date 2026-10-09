@@ -33,6 +33,15 @@ random.seed(SEED)
 np.random.seed(SEED)
 try:
     import torch
+    _orig_torch_load = torch.load
+    def _compat_torch_load(*args, **kwargs):
+        if 'weights_only' not in kwargs:
+            try:
+                return _orig_torch_load(*args, **kwargs, weights_only=False)
+            except TypeError:
+                pass
+        return _orig_torch_load(*args, **kwargs)
+    torch.load = _compat_torch_load
     torch.manual_seed(SEED)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(SEED)
@@ -238,6 +247,10 @@ def archive_and_verify_checkpoints(exp_dir: Path, stage: int, epochs: int, check
     """Verify and archive checkpoint_xx.pt and best_model.pt."""
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(reports_dir, exist_ok=True)
+
+    weights_dir = exp_dir / "weights"
+    last_pt = weights_dir / "last.pt"
+    best_pt = weights_dir / "best.pt"
 
     # Checkpoint Validation & Recovery requirement
     if not last_pt.exists() and not best_pt.exists():

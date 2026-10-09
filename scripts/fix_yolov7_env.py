@@ -110,13 +110,16 @@ def patch_torch_load_in_files(yolov7_dir: str = ".", reports_dir: str = "reports
 
     patch_results = {}
 
-    header_patch = """
+header_patch = """
 # --- Plan 1 v4.0 PyTorch Compatibility Layer ---
 import torch
 _orig_torch_load = torch.load
 def _compat_torch_load(*args, **kwargs):
-    if 'weights_only' not in kwargs and 'weights_only' in _orig_torch_load.__code__.co_varnames:
-        kwargs['weights_only'] = False
+    if 'weights_only' not in kwargs:
+        try:
+            return _orig_torch_load(*args, **kwargs, weights_only=False)
+        except TypeError:
+            pass
     return _orig_torch_load(*args, **kwargs)
 torch.load = _compat_torch_load
 # -----------------------------------------------
@@ -131,14 +134,19 @@ torch.load = _compat_torch_load
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
 
-            if "# --- Plan 1 v4.0 PyTorch Compatibility Layer ---" not in content and "# --- Plan 1_4 PyTorch 2.x Compatibility Layer ---" not in content:
+            if "# --- Plan 1 v4.0 PyTorch Compatibility Layer ---" in content or "# --- Plan 1_4 PyTorch 2.x Compatibility Layer ---" in content:
+                # Refresh with latest robust wrapper
+                content = re.sub(r"# --- Plan 1[^\n]+Layer ---[\s\S]*?# -----------------------------------------------\n", header_patch.strip() + "\n", content)
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+                patch_results[str(file_path)] = "PATCHED (refreshed robust torch.load wrapper)"
+                print(f"[ENV FIX] Refreshed torch.load compatibility wrapper into {file_path.name}")
+            else:
                 content = header_patch + content
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(content)
                 patch_results[str(file_path)] = "PATCHED (torch.load wrapper injected)"
                 print(f"[ENV FIX] Injected torch.load compatibility wrapper into {file_path.name}")
-            else:
-                patch_results[str(file_path)] = "ALREADY_PATCHED"
         except Exception as e:
             patch_results[str(file_path)] = f"ERROR: {str(e)}"
             print(f"[ENV FIX] Error patching {file_path}: {e}")
