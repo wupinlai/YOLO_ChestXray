@@ -26,6 +26,8 @@ import matplotlib.pyplot as plt
 # 1. Non-interactive requirement
 os.environ['WANDB_MODE'] = 'disabled'
 os.environ['WANDB_DISABLED'] = 'true'
+sys.path.insert(0, os.getcwd())
+sys.path.insert(0, ".")
 
 # 2. Reproducibility seed setup
 SEED = 42
@@ -33,6 +35,19 @@ random.seed(SEED)
 np.random.seed(SEED)
 try:
     import torch
+    try:
+        import numpy as np_glob
+        _sg = [getattr(np_glob, 'ndarray', None), getattr(np_glob, 'dtype', None)]
+        if hasattr(np_glob, 'core') and hasattr(np_glob.core, 'multiarray'):
+            _sg.append(getattr(np_glob.core.multiarray, '_reconstruct', None))
+        if hasattr(np_glob, '_core') and hasattr(np_glob._core, 'multiarray'):
+            _sg.append(getattr(np_glob._core.multiarray, '_reconstruct', None))
+        _sg = [g for g in _sg if g is not None]
+        if hasattr(torch.serialization, 'add_safe_globals'):
+            torch.serialization.add_safe_globals(_sg)
+    except Exception:
+        pass
+
     _orig_torch_load = torch.load
     def _compat_torch_load(*args, **kwargs):
         if 'weights_only' not in kwargs:
@@ -374,11 +389,13 @@ def main():
 
     try:
         try:
-            from scripts.fix_yolov7_env import patch_yolov7_train_py_resume, patch_yolov7_train_py_epochs
+            from scripts.fix_yolov7_env import patch_torch_load_in_files, patch_yolov7_train_py_resume, patch_yolov7_train_py_epochs
+            patch_torch_load_in_files(".", opt.reports_dir)
             patch_yolov7_train_py_resume(".")
             patch_yolov7_train_py_epochs(".")
         except ImportError:
-            from fix_yolov7_env import patch_yolov7_train_py_resume, patch_yolov7_train_py_epochs
+            from fix_yolov7_env import patch_torch_load_in_files, patch_yolov7_train_py_resume, patch_yolov7_train_py_epochs
+            patch_torch_load_in_files(".", opt.reports_dir)
             patch_yolov7_train_py_resume(".")
             patch_yolov7_train_py_epochs(".")
     except Exception:

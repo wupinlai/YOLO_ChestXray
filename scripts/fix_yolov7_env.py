@@ -110,9 +110,22 @@ def patch_torch_load_in_files(yolov7_dir: str = ".", reports_dir: str = "reports
 
     patch_results = {}
 
-header_patch = """
+    header_patch = """
 # --- Plan 1 v4.0 PyTorch Compatibility Layer ---
 import torch
+try:
+    import numpy as np
+    _sg = [getattr(np, 'ndarray', None), getattr(np, 'dtype', None)]
+    if hasattr(np, 'core') and hasattr(np.core, 'multiarray'):
+        _sg.append(getattr(np.core.multiarray, '_reconstruct', None))
+    if hasattr(np, '_core') and hasattr(np._core, 'multiarray'):
+        _sg.append(getattr(np._core.multiarray, '_reconstruct', None))
+    _sg = [g for g in _sg if g is not None]
+    if hasattr(torch.serialization, 'add_safe_globals'):
+        torch.serialization.add_safe_globals(_sg)
+except Exception:
+    pass
+
 _orig_torch_load = torch.load
 def _compat_torch_load(*args, **kwargs):
     if 'weights_only' not in kwargs:
@@ -134,15 +147,24 @@ torch.load = _compat_torch_load
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
 
+            # 1. Direct in-code replacement of torch.load(...) to always include weights_only=False
+            def _repl_load(match):
+                inner_args = match.group(1)
+                if "weights_only" not in inner_args:
+                    return f"torch.load({inner_args}, weights_only=False)"
+                return match.group(0)
+
+            content = re.sub(r"torch\.load\(([^)\n]+)\)", _repl_load, content)
+
+            # 2. Header patch injection / refresh
             if "# --- Plan 1 v4.0 PyTorch Compatibility Layer ---" in content or "# --- Plan 1_4 PyTorch 2.x Compatibility Layer ---" in content:
-                # Refresh with latest robust wrapper
                 content = re.sub(r"# --- Plan 1[^\n]+Layer ---[\s\S]*?# -----------------------------------------------\n", header_patch.strip() + "\n", content)
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(content)
-                patch_results[str(file_path)] = "PATCHED (refreshed robust torch.load wrapper)"
-                print(f"[ENV FIX] Refreshed torch.load compatibility wrapper into {file_path.name}")
+                patch_results[str(file_path)] = "PATCHED (refreshed robust torch.load wrapper and literal calls)"
+                print(f"[ENV FIX] Refreshed torch.load compatibility wrapper & literal calls in {file_path.name}")
             else:
-                content = header_patch + content
+                content = header_patch.strip() + "\n" + content
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(content)
                 patch_results[str(file_path)] = "PATCHED (torch.load wrapper injected)"
