@@ -198,13 +198,14 @@ def patch_yolov7_train_py_resume(yolov7_dir: str = "."):
     with open(train_py, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Pattern: with open(Path(ckpt).parent.parent / 'opt.yaml') as f: or chkpt or previous patch
-    old_patterns = [
-        "with open(Path(ckpt).parent.parent / 'opt.yaml') as f:",
-        "with open(Path(chkpt).parent.parent / 'opt.yaml') as f:",
-        "Path(chkpt).parent.parent / 'opt.yaml'",
-    ]
-    replacement = """# --- Safe opt.yaml resolution for resume ---
+    # Regex to match the entire original or partially patched resume block
+    # from 'with open(Path...' up to and including the '# reinstate' line
+    full_block_pattern = re.compile(
+        r"([ \t]*)(?:# --- Safe opt\.yaml resolution for resume ---[\s\S]*?|with open\(Path\([^)]+\)\.parent\.parent / ['\"]opt\.yaml['\"]\)[^\n]*:[\s\S]*?)opt\.cfg,\s*opt\.weights,\s*opt\.resume[^\n]*# reinstate",
+        re.MULTILINE
+    )
+
+    replacement_block = """# --- Safe opt.yaml resolution for resume ---
         _ckpt_target = ckpt if 'ckpt' in locals() else (chkpt if 'chkpt' in locals() else opt.resume)
         _opt_candidates = [
             Path(_ckpt_target).parent.parent / 'opt.yaml',
@@ -216,38 +217,33 @@ def patch_yolov7_train_py_resume(yolov7_dir: str = "."):
         ]
         _opt_file = next((c for c in _opt_candidates if c.exists()), None)
         if _opt_file is not None:
-            with open(_opt_file) as f:
-                opt = argparse.Namespace(**yaml.load(f, Loader=yaml.SafeLoader))
+            with open(_opt_file) as _f:
+                opt = argparse.Namespace(**yaml.load(_f, Loader=yaml.SafeLoader))
         else:
             _d = torch.load(_ckpt_target, map_location='cpu')
             if isinstance(_d, dict) and 'opt' in _d and _d['opt'] is not None:
                 opt = _d['opt'] if isinstance(_d['opt'], argparse.Namespace) else argparse.Namespace(**_d['opt'])
             else:
-                opt = argparse.Namespace(epochs=opt.epochs, cfg='', weights='', data='configs/chestxray.yaml', batch_size=opt.batch_size if hasattr(opt, 'batch_size') else 8, img_size=opt.img_size if hasattr(opt, 'img_size') else [1024, 1024], hyp='data/hyp.scratch.p5.yaml', project='runs/train', name='exp', device='', exist_ok=True, single_cls=False, sync_bn=False, local_rank=-1, entity=None, upload_dataset=False, bbox_interval=-1, save_period=-1, artifact_alias='latest')
-        if not hasattr(opt, 'total_batch_size'):
-            opt.total_batch_size = getattr(opt, 'batch_size', 8)
+                opt = argparse.Namespace(epochs=opt.epochs, cfg='', weights='', data='configs/chestxray.yaml', batch_size=getattr(opt, 'batch_size', 8), img_size=getattr(opt, 'img_size', [1024, 1024]), hyp='data/hyp.scratch.p5.yaml', project='runs/train', name='exp', device='', exist_ok=True, single_cls=False, sync_bn=False, local_rank=-1, entity=None, upload_dataset=False, bbox_interval=-1, save_period=-1, artifact_alias='latest')
+        _tb = getattr(opt, 'total_batch_size', getattr(opt, 'batch_size', 8))
+        opt.cfg, opt.weights, opt.resume, opt.batch_size, opt.global_rank, opt.local_rank = '', _ckpt_target, True, _tb, *apriori
         # -------------------------------------------"""
 
-    # If already patched with chkpt, replace chkpt with _ckpt_target
-    if "Path(chkpt).parent.parent / 'opt.yaml'" in content:
-        content = content.replace("chkpt", "ckpt")
-
-    # Patch the reinstatement line: opt.total_batch_size -> getattr(opt, 'total_batch_size', opt.batch_size)
-    reinstatement_target = "opt.cfg, opt.weights, opt.resume, opt.batch_size, opt.global_rank, opt.local_rank = '', ckpt, True, opt.total_batch_size, *apriori"
-    reinstatement_safe = "_tb = getattr(opt, 'total_batch_size', getattr(opt, 'batch_size', 8)); _target = ckpt if 'ckpt' in locals() else opt.resume; opt.cfg, opt.weights, opt.resume, opt.batch_size, opt.global_rank, opt.local_rank = '', _target, True, _tb, *apriori"
-    if reinstatement_target in content:
-        content = content.replace(reinstatement_target, reinstatement_safe)
-
-    modified = False
-    for pat in old_patterns:
-        if pat in content:
-            content = content.replace(pat, replacement)
-            modified = True
-
-    if modified:
+    if full_block_pattern.search(content):
+        content = full_block_pattern.sub(replacement_block, content, count=1)
         with open(train_py, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"[ENV FIX] Successfully patched {train_py.name} for safe resume opt.yaml lookup.")
+    elif "Safe opt.yaml resolution for resume" in content and "yaml.load(f, Loader=yaml.SafeLoader)" in content:
+        # Fallback cleanup for any leftover old replacement patterns
+        content = re.sub(
+            r"([ \t]*opt = argparse\.Namespace\(\*\*yaml\.load\(f, Loader=yaml\.SafeLoader\)\)[^\n]*)",
+            r"# \1 (cleaned up)",
+            content
+        )
+        with open(train_py, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"[ENV FIX] Successfully cleaned up {train_py.name} resume block.")
 
 
 def setup_plan1_4_environment(yolov7_dir: str = ".", reports_dir: str = "reports"):

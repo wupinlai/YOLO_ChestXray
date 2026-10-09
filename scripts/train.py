@@ -347,6 +347,16 @@ def main():
     if opt.device:
         cmd.append(f"--device {opt.device}")
 
+    try:
+        try:
+            from scripts.fix_yolov7_env import patch_yolov7_train_py_resume
+            patch_yolov7_train_py_resume(".")
+        except ImportError:
+            from fix_yolov7_env import patch_yolov7_train_py_resume
+            patch_yolov7_train_py_resume(".")
+    except Exception:
+        pass
+
     full_cmd = " ".join(cmd)
     print(f"[EXEC] Running command: {full_cmd}")
 
