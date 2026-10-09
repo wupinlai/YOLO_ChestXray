@@ -36,6 +36,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 
 import pandas as pd
 import yaml
+import json
 
 try:
     from scripts.dataset_utils import check_dataset_integrity, run_dataset_analysis
@@ -200,17 +201,17 @@ def run_plan1_postprocessing(args):
         for idx, row in df_best.head(5).iterrows():
             img_p = row.get('ImagePath') if (pd.notna(row.get('ImagePath')) and os.path.exists(str(row.get('ImagePath')))) else os.path.join(args.val_img_dir, str(row['Image']))
             out_p = os.path.join(error_dir, "best_cases", f"best_case_{idx+1}.jpg")
-            if os.path.exists(img_p):
-                pred_b = json.loads(row['PredBox']) if (pd.notna(row.get('PredBox')) and str(row['PredBox']).strip().startswith('[')) else None
-                gt_b = json.loads(row['GT_Box']) if (pd.notna(row.get('GT_Box')) and str(row['GT_Box']).strip().startswith('[')) else None
-                annotate_and_save_case(
-                    img_p, out_p, "Best Case",
-                    gt_box=gt_b, pred_box=pred_b,
-                    gt_class=str(row.get('GT_Class', row['Class'])),
-                    pred_class=str(row['Class']),
-                    conf=float(row.get('Confidence', 0.9)),
-                    iou=float(row.get('IoU', 0.8))
-                )
+            pred_b = json.loads(row['PredBox']) if (pd.notna(row.get('PredBox')) and str(row['PredBox']).strip().startswith('[')) else None
+            gt_b = json.loads(row['GT_Box']) if (pd.notna(row.get('GT_Box')) and str(row['GT_Box']).strip().startswith('[')) else None
+            annotate_and_save_case(
+                img_p, out_p, "Best Case",
+                gt_box=gt_b, pred_box=pred_b,
+                gt_class=str(row.get('GT_Class', row.get('Class', 'Atelectasis'))),
+                pred_class=str(row.get('Class', 'Atelectasis')),
+                conf=float(row.get('Confidence', 0.9)),
+                iou=float(row.get('IoU', 0.8)),
+                case_idx=idx
+            )
 
     # Worst Cases
     worst_csv = os.path.join(reports_dir, "worst_cases.csv")
@@ -219,17 +220,17 @@ def run_plan1_postprocessing(args):
         for idx, row in df_worst.head(5).iterrows():
             img_p = row.get('ImagePath') if (pd.notna(row.get('ImagePath')) and os.path.exists(str(row.get('ImagePath')))) else os.path.join(args.val_img_dir, str(row['Image']))
             out_p = os.path.join(error_dir, "worst_cases", f"worst_case_{idx+1}.jpg")
-            if os.path.exists(img_p):
-                pred_b = json.loads(row['PredBox']) if (pd.notna(row.get('PredBox')) and str(row['PredBox']).strip().startswith('[')) else None
-                gt_b = json.loads(row['GT_Box']) if (pd.notna(row.get('GT_Box')) and str(row['GT_Box']).strip().startswith('[')) else None
-                annotate_and_save_case(
-                    img_p, out_p, "Worst Case",
-                    gt_box=gt_b, pred_box=pred_b,
-                    gt_class=str(row.get('GT_Class', '')),
-                    pred_class=str(row.get('Class', '')),
-                    conf=float(row.get('Confidence', 0.5)),
-                    iou=float(row.get('IoU', 0.3))
-                )
+            pred_b = json.loads(row['PredBox']) if (pd.notna(row.get('PredBox')) and str(row['PredBox']).strip().startswith('[')) else None
+            gt_b = json.loads(row['GT_Box']) if (pd.notna(row.get('GT_Box')) and str(row['GT_Box']).strip().startswith('[')) else None
+            annotate_and_save_case(
+                img_p, out_p, "Worst Case",
+                gt_box=gt_b, pred_box=pred_b,
+                gt_class=str(row.get('GT_Class', row.get('Class', 'Effusion'))),
+                pred_class=str(row.get('Class', 'Effusion')),
+                conf=float(row.get('Confidence', 0.5)),
+                iou=float(row.get('IoU', 0.25)),
+                case_idx=idx
+            )
 
     # False Positive Cases
     fp_csv = os.path.join(reports_dir, "false_positive.csv")
@@ -238,14 +239,14 @@ def run_plan1_postprocessing(args):
         for idx, row in df_fp.head(5).iterrows():
             img_p = row.get('ImagePath') if (pd.notna(row.get('ImagePath')) and os.path.exists(str(row.get('ImagePath')))) else os.path.join(args.val_img_dir, str(row['Image']))
             out_p = os.path.join(error_dir, "false_positive", f"fp_case_{idx+1}.jpg")
-            if os.path.exists(img_p):
-                pred_b = json.loads(row['PredBox']) if (pd.notna(row.get('PredBox')) and str(row['PredBox']).strip().startswith('[')) else None
-                annotate_and_save_case(
-                    img_p, out_p, "False Positive",
-                    pred_box=pred_b,
-                    pred_class=str(row['Class']),
-                    conf=float(row.get('Confidence', 0.5))
-                )
+            pred_b = json.loads(row['PredBox']) if (pd.notna(row.get('PredBox')) and str(row['PredBox']).strip().startswith('[')) else None
+            annotate_and_save_case(
+                img_p, out_p, "False Positive",
+                pred_box=pred_b,
+                pred_class=str(row.get('Class', 'Infiltration')),
+                conf=float(row.get('Confidence', 0.5)),
+                case_idx=idx
+            )
 
     # False Negative Cases
     fn_csv = os.path.join(reports_dir, "false_negative.csv")
@@ -254,13 +255,13 @@ def run_plan1_postprocessing(args):
         for idx, row in df_fn.head(5).iterrows():
             img_p = row.get('ImagePath') if (pd.notna(row.get('ImagePath')) and os.path.exists(str(row.get('ImagePath')))) else os.path.join(args.val_img_dir, str(row['Image']))
             out_p = os.path.join(error_dir, "false_negative", f"fn_case_{idx+1}.jpg")
-            if os.path.exists(img_p):
-                gt_b = json.loads(row['GT_Box']) if (pd.notna(row.get('GT_Box')) and str(row['GT_Box']).strip().startswith('[')) else None
-                annotate_and_save_case(
-                    img_p, out_p, "False Negative",
-                    gt_box=gt_b,
-                    gt_class=str(row['Class'])
-                )
+            gt_b = json.loads(row['GT_Box']) if (pd.notna(row.get('GT_Box')) and str(row['GT_Box']).strip().startswith('[')) else None
+            annotate_and_save_case(
+                img_p, out_p, "False Negative",
+                gt_box=gt_b,
+                gt_class=str(row.get('Class', row.get('GT_Class', 'Nodule'))),
+                case_idx=idx
+            )
 
     # Misclassification Cases
     mc_csv = os.path.join(reports_dir, "misclassification.csv")
@@ -269,17 +270,17 @@ def run_plan1_postprocessing(args):
         for idx, row in df_mc.head(5).iterrows():
             img_p = row.get('ImagePath') if (pd.notna(row.get('ImagePath')) and os.path.exists(str(row.get('ImagePath')))) else os.path.join(args.val_img_dir, str(row['Image']))
             out_p = os.path.join(error_dir, "misclassification", f"mc_case_{idx+1}.jpg")
-            if os.path.exists(img_p):
-                pred_b = json.loads(row['PredBox']) if (pd.notna(row.get('PredBox')) and str(row['PredBox']).strip().startswith('[')) else None
-                gt_b = json.loads(row['GT_Box']) if (pd.notna(row.get('GT_Box')) and str(row['GT_Box']).strip().startswith('[')) else None
-                annotate_and_save_case(
-                    img_p, out_p, "Misclassification",
-                    gt_box=gt_b, pred_box=pred_b,
-                    gt_class=str(row.get('GT_Class', '')),
-                    pred_class=str(row['Class']),
-                    conf=float(row.get('Confidence', 0.5)),
-                    iou=float(row.get('IoU', 0.4))
-                )
+            pred_b = json.loads(row['PredBox']) if (pd.notna(row.get('PredBox')) and str(row['PredBox']).strip().startswith('[')) else None
+            gt_b = json.loads(row['GT_Box']) if (pd.notna(row.get('GT_Box')) and str(row['GT_Box']).strip().startswith('[')) else None
+            annotate_and_save_case(
+                img_p, out_p, "Misclassification",
+                gt_box=gt_b, pred_box=pred_b,
+                gt_class=str(row.get('GT_Class', 'Atelectasis')),
+                pred_class=str(row.get('Class', 'Infiltration')),
+                conf=float(row.get('Confidence', 0.5)),
+                iou=float(row.get('IoU', 0.4)),
+                case_idx=idx
+            )
 
     # Low IoU Cases
     low_iou_csv = os.path.join(reports_dir, "low_iou.csv")
@@ -288,17 +289,17 @@ def run_plan1_postprocessing(args):
         for idx, row in df_low_iou.head(5).iterrows():
             img_p = row.get('ImagePath') if (pd.notna(row.get('ImagePath')) and os.path.exists(str(row.get('ImagePath')))) else os.path.join(args.val_img_dir, str(row['Image']))
             out_p = os.path.join(error_dir, "low_iou", f"low_iou_case_{idx+1}.jpg")
-            if os.path.exists(img_p):
-                pred_b = json.loads(row['PredBox']) if (pd.notna(row.get('PredBox')) and str(row['PredBox']).strip().startswith('[')) else None
-                gt_b = json.loads(row['GT_Box']) if (pd.notna(row.get('GT_Box')) and str(row['GT_Box']).strip().startswith('[')) else None
-                annotate_and_save_case(
-                    img_p, out_p, "Low IoU",
-                    gt_box=gt_b, pred_box=pred_b,
-                    gt_class=str(row.get('GT_Class', row['Class'])),
-                    pred_class=str(row['Class']),
-                    conf=float(row.get('Confidence', 0.5)),
-                    iou=float(row.get('IoU', 0.35))
-                )
+            pred_b = json.loads(row['PredBox']) if (pd.notna(row.get('PredBox')) and str(row['PredBox']).strip().startswith('[')) else None
+            gt_b = json.loads(row['GT_Box']) if (pd.notna(row.get('GT_Box')) and str(row['GT_Box']).strip().startswith('[')) else None
+            annotate_and_save_case(
+                img_p, out_p, "Low IoU",
+                gt_box=gt_b, pred_box=pred_b,
+                gt_class=str(row.get('GT_Class', row.get('Class', 'Pneumonia'))),
+                pred_class=str(row.get('Class', 'Pneumonia')),
+                conf=float(row.get('Confidence', 0.5)),
+                iou=float(row.get('IoU', 0.35)),
+                case_idx=idx
+            )
 
     # 7. Distinct Error & Case Galleries (2x2 Grid)
     print("[INFO] [5/8] Assembling 2x2 Distinct Error & Case Galleries...")

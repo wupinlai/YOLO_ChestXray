@@ -1,8 +1,8 @@
 {
   "project": "YOLO_ChestXray",
   "plan_version": "Plan 1-2",
-  "timestamp": "2026-10-09T05:54:09Z",
-  "total_artifacts": 106,
+  "timestamp": "2026-10-09T06:47:21Z",
+  "total_artifacts": 121,
   "files": [
     ".gitkeep",
     "bbox_size_distribution.png",
@@ -85,6 +85,11 @@
     "final_inference\\sample_10.jpg",
     "final_inference\\sample_manifest.tsv",
     "final_report\\final_report.pdf",
+    "error_analysis\\best_cases\\best_case_1.jpg",
+    "error_analysis\\best_cases\\best_case_2.jpg",
+    "error_analysis\\best_cases\\best_case_3.jpg",
+    "error_analysis\\best_cases\\best_case_4.jpg",
+    "error_analysis\\best_cases\\best_case_5.jpg",
     "error_analysis\\false_negative\\fn_case_1.jpg",
     "error_analysis\\false_negative\\fn_case_2.jpg",
     "error_analysis\\false_negative\\fn_case_3.jpg",
@@ -95,10 +100,20 @@
     "error_analysis\\false_positive\\fp_case_3.jpg",
     "error_analysis\\false_positive\\fp_case_4.jpg",
     "error_analysis\\false_positive\\fp_case_5.jpg",
+    "error_analysis\\low_iou\\low_iou_case_1.jpg",
+    "error_analysis\\low_iou\\low_iou_case_2.jpg",
+    "error_analysis\\low_iou\\low_iou_case_3.jpg",
+    "error_analysis\\low_iou\\low_iou_case_4.jpg",
+    "error_analysis\\low_iou\\low_iou_case_5.jpg",
     "error_analysis\\misclassification\\mc_case_1.jpg",
     "error_analysis\\misclassification\\mc_case_2.jpg",
     "error_analysis\\misclassification\\mc_case_3.jpg",
     "error_analysis\\misclassification\\mc_case_4.jpg",
-    "error_analysis\\misclassification\\mc_case_5.jpg"
+    "error_analysis\\misclassification\\mc_case_5.jpg",
+    "error_analysis\\worst_cases\\worst_case_1.jpg",
+    "error_analysis\\worst_cases\\worst_case_2.jpg",
+    "error_analysis\\worst_cases\\worst_case_3.jpg",
+    "error_analysis\\worst_cases\\worst_case_4.jpg",
+    "error_analysis\\worst_cases\\worst_case_5.jpg"
   ]
 }
