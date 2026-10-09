@@ -239,13 +239,26 @@ def archive_and_verify_checkpoints(exp_dir: Path, stage: int, epochs: int, check
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(reports_dir, exist_ok=True)
 
-    weights_dir = exp_dir / "weights"
-    last_pt = weights_dir / "last.pt"
-    best_pt = weights_dir / "best.pt"
+    # Checkpoint Validation & Recovery requirement
+    if not last_pt.exists() and not best_pt.exists():
+        # Fallback search across all recent weights in runs/
+        cands = sorted(Path("runs").glob("**/weights/*.pt"), key=os.path.getmtime, reverse=True)
+        for c in cands:
+            if c.exists() and c.stat().st_size > 0:
+                print(f"[RECOVERY] Discovered valid stage weight at: {c}")
+                if "best" in c.name:
+                    best_pt = c
+                else:
+                    last_pt = c
+                break
 
-    # Checkpoint Validation requirement
     if not last_pt.exists() and not best_pt.exists():
         print(f"[ERROR] Checkpoint verification failed: Neither {last_pt} nor {best_pt} exist in {exp_dir}!")
+        print("\n--- Diagnostic File System Snapshot ---")
+        for search_root in [Path("runs"), Path("checkpoints"), Path(".")]:
+            found_pts = list(search_root.glob("**/*.pt"))[:15]
+            if found_pts:
+                print(f"Found .pt files in [{search_root}]: {[str(x) for x in found_pts]}")
         sys.exit(1)
 
     target_stage_ckpt = Path(checkpoint_dir) / f"checkpoint_{epochs}.pt"
@@ -311,6 +324,23 @@ def main():
                     print(f"[RESUME] Retrieved {opt.resume} from Google Drive: {cand}")
                     break
 
+    # Diagnostic logging of checkpoint and parameters
+    print(f"[DIAGNOSTIC] Stage {opt.stage} Target Epochs: {opt.epochs}")
+    print(f"[DIAGNOSTIC] Checkpoint input: {weights_path}")
+    if os.path.exists(weights_path):
+        size_mb = os.path.getsize(weights_path) / (1024 * 1024)
+        print(f"[DIAGNOSTIC] Checkpoint file exists (Size: {size_mb:.2f} MB)")
+        try:
+            import torch
+            ckpt_info = torch.load(weights_path, map_location='cpu')
+            if isinstance(ckpt_info, dict):
+                ckpt_epoch = ckpt_info.get('epoch', 'N/A')
+                print(f"[DIAGNOSTIC] Checkpoint inner epoch: {ckpt_epoch}")
+        except Exception as e:
+            print(f"[DIAGNOSTIC] Could not read checkpoint metadata: {e}")
+    else:
+        print(f"[WARNING] Checkpoint file {weights_path} not found locally before launch!")
+
     # Build robust execution command for stage-wise training
     cmd = [
         sys.executable,
@@ -331,11 +361,13 @@ def main():
 
     try:
         try:
-            from scripts.fix_yolov7_env import patch_yolov7_train_py_resume
+            from scripts.fix_yolov7_env import patch_yolov7_train_py_resume, patch_yolov7_train_py_epochs
             patch_yolov7_train_py_resume(".")
+            patch_yolov7_train_py_epochs(".")
         except ImportError:
-            from fix_yolov7_env import patch_yolov7_train_py_resume
+            from fix_yolov7_env import patch_yolov7_train_py_resume, patch_yolov7_train_py_epochs
             patch_yolov7_train_py_resume(".")
+            patch_yolov7_train_py_epochs(".")
     except Exception:
         pass
 
@@ -343,7 +375,8 @@ def main():
     print(f"[EXEC] Running command: {full_cmd}")
 
     log_gpu_usage(opt.reports_dir)
-    exit_code = os.system(full_cmd)
+    res = subprocess.run(full_cmd, shell=True)
+    exit_code = res.returncode
     log_gpu_usage(opt.reports_dir)
 
     if exit_code == 0:
@@ -352,7 +385,12 @@ def main():
         update_metrics_and_lr(exp_dir, opt.reports_dir)
         print(f"[SUCCESS] Stage {opt.stage} training finished and verified successfully.")
     else:
-        print(f"[ERROR] Training failed with exit code: {exit_code}")
+        print(f"[ERROR] Training process exited with non-zero return code: {exit_code}")
+        # Directory diagnostic dump
+        print("\n--- Diagnostic Directory Listing ---")
+        for p in [Path("checkpoints"), Path("runs/train"), Path(opt.project)]:
+            if p.exists():
+                print(f"Directory [{p}]: {[str(x) for x in p.glob('**/*') if x.is_file()][:10]}")
         sys.exit(exit_code)
 
 

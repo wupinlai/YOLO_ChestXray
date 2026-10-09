@@ -275,6 +275,29 @@ def patch_yolov7_train_py_resume(yolov7_dir: str = "."):
         print(f"[ENV FIX] Successfully patched {train_py.name} for safe resume opt.yaml lookup.")
 
 
+def patch_yolov7_train_py_epochs(yolov7_dir: str = "."):
+    """Patch train.py in YOLOv7 to ensure start_epoch and epochs correctly compute the epoch range and log clearly."""
+    train_py = Path(yolov7_dir) / "train.py"
+    if not train_py.exists():
+        return
+
+    with open(train_py, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    old_target = "start_epoch = ckpt['epoch'] + 1"
+    replacement = """start_epoch = ckpt['epoch'] + 1 if isinstance(ckpt, dict) and 'epoch' in ckpt and ckpt['epoch'] is not None else 0
+        if epochs <= start_epoch:
+            logger.info(f'[EPOCH FIX] Target epochs ({epochs}) <= start_epoch ({start_epoch}). Adjusting total epochs target to {start_epoch + max(opt.epochs, 10)}')
+            epochs = start_epoch + (opt.epochs if opt.epochs <= 30 else (opt.epochs - start_epoch if opt.epochs > start_epoch else 30))
+        logger.info(f'[TRAIN] Effective start_epoch={start_epoch}, total_target_epochs={epochs}, epochs_to_run={epochs - start_epoch}')"""
+
+    if old_target in content and "[EPOCH FIX]" not in content:
+        content = content.replace(old_target, replacement)
+        with open(train_py, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"[ENV FIX] Successfully patched {train_py.name} for bulletproof start_epoch calculation.")
+
+
 def setup_plan1_4_environment(yolov7_dir: str = ".", reports_dir: str = "reports"):
     """Main entrypoint for Plan 1 v4.0 environment setup & compatibility enforcement."""
     # Disable WANDB completely
@@ -285,6 +308,7 @@ def setup_plan1_4_environment(yolov7_dir: str = ".", reports_dir: str = "reports
     patch_numpy_aliases()
     patch_yolov7_loss_py(yolov7_dir)
     patch_yolov7_train_py_resume(yolov7_dir)
+    patch_yolov7_train_py_epochs(yolov7_dir)
     patch_torch_load_in_files(yolov7_dir, reports_dir)
     print("=" * 70)
     print("✅ [Plan 1 v4.0] YOLOv7 Legacy Compatibility Environment Ready")
