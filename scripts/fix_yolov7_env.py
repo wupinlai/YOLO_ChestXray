@@ -198,15 +198,17 @@ def patch_yolov7_train_py_resume(yolov7_dir: str = "."):
     with open(train_py, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Pattern: with open(Path(ckpt).parent.parent / 'opt.yaml') as f: or chkpt
+    # Pattern: with open(Path(ckpt).parent.parent / 'opt.yaml') as f: or chkpt or previous patch
     old_patterns = [
         "with open(Path(ckpt).parent.parent / 'opt.yaml') as f:",
         "with open(Path(chkpt).parent.parent / 'opt.yaml') as f:",
+        "Path(chkpt).parent.parent / 'opt.yaml'",
     ]
     replacement = """# --- Safe opt.yaml resolution for resume ---
+        _ckpt_target = ckpt if 'ckpt' in locals() else (chkpt if 'chkpt' in locals() else opt.resume)
         _opt_candidates = [
-            Path(chkpt).parent.parent / 'opt.yaml',
-            Path(chkpt).parent / 'opt.yaml',
+            Path(_ckpt_target).parent.parent / 'opt.yaml',
+            Path(_ckpt_target).parent / 'opt.yaml',
             Path('checkpoints/opt.yaml'),
             Path('opt.yaml'),
             Path('runs/train/stage_1/opt.yaml'),
@@ -217,12 +219,16 @@ def patch_yolov7_train_py_resume(yolov7_dir: str = "."):
             with open(_opt_file) as f:
                 opt = argparse.Namespace(**yaml.load(f, Loader=yaml.SafeLoader))
         else:
-            _d = torch.load(chkpt, map_location='cpu')
+            _d = torch.load(_ckpt_target, map_location='cpu')
             if isinstance(_d, dict) and 'opt' in _d and _d['opt'] is not None:
                 opt = _d['opt'] if isinstance(_d['opt'], argparse.Namespace) else argparse.Namespace(**_d['opt'])
             else:
                 opt = argparse.Namespace(epochs=opt.epochs, cfg='', weights='', data='configs/chestxray.yaml', batch_size=opt.batch_size if hasattr(opt, 'batch_size') else 8, img_size=opt.img_size if hasattr(opt, 'img_size') else [1024, 1024], hyp='data/hyp.scratch.p5.yaml', project='runs/train', name='exp', device='', exist_ok=True, single_cls=False, sync_bn=False, local_rank=-1, entity=None, upload_dataset=False, bbox_interval=-1, save_period=-1, artifact_alias='latest')
         # -------------------------------------------"""
+
+    # If already patched with chkpt, replace chkpt with _ckpt_target
+    if "Path(chkpt).parent.parent / 'opt.yaml'" in content:
+        content = content.replace("chkpt", "ckpt")
 
     modified = False
     for pat in old_patterns:
