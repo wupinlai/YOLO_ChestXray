@@ -156,19 +156,20 @@ def update_metrics_and_lr(exp_dir: Path, reports_dir: str):
                         train_box_loss = float(parts[2])
                         train_obj_loss = float(parts[3])
                         train_cls_loss = float(parts[4])
-                        train_loss = train_box_loss + train_obj_loss + train_cls_loss
+                        train_loss = float(parts[5]) if len(parts) > 5 else (train_box_loss + train_obj_loss + train_cls_loss)
 
-                        precision = float(parts[8])
-                        recall = float(parts[9])
-                        map50 = float(parts[10])
+                        precision = float(parts[8]) if len(parts) > 8 else 0.0
+                        recall = float(parts[9]) if len(parts) > 9 else 0.0
+                        map50 = float(parts[10]) if len(parts) > 10 else 0.0
                         map50_95 = float(parts[11]) if len(parts) > 11 else 0.0
 
-                        val_box = float(parts[5]) if len(parts) > 7 else 0.0
-                        val_obj = float(parts[6]) if len(parts) > 7 else 0.0
-                        val_cls = float(parts[7]) if len(parts) > 7 else 0.0
-                        val_loss = val_box + val_obj + val_cls
+                        # YOLOv7 results.txt: parts[6]=targets, parts[7]=img_size, parts[12..14]=val_box, val_obj, val_cls
+                        val_box = float(parts[12]) if len(parts) > 12 else 0.0
+                        val_obj = float(parts[13]) if len(parts) > 13 else 0.0
+                        val_cls = float(parts[14]) if len(parts) > 14 else 0.0
+                        val_loss = val_box + val_obj + val_cls if len(parts) > 14 else train_loss
 
-                        lr = float(parts[12]) if len(parts) > 12 else 0.001
+                        lr = float(parts[15]) if len(parts) > 15 else 0.001
 
                         records.append({
                             'Epoch': epoch,

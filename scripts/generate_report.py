@@ -125,8 +125,19 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
         pdf.savefig(fig, dpi=300)
         plt.close(fig)
 
+        # Check actual recorded epochs from metrics_history.csv
+        ep_count = 150
+        history_csv = os.path.join(reports_dir, "metrics_history.csv")
+        if os.path.exists(history_csv):
+            try:
+                df_h = pd.read_csv(history_csv)
+                if not df_h.empty and 'Epoch' in df_h.columns:
+                    ep_count = int(df_h['Epoch'].max())
+            except Exception:
+                pass
+
         # PAGE 4: Training Metrics
-        fig, ax = create_page_with_header("4. Training Metrics: Stage-wise Convergence", "mAP@0.5, mAP@0.5:0.95 and Training/Validation loss trajectories over 50 epochs", 4)
+        fig, ax = create_page_with_header("4. Training Metrics: Stage-wise Convergence", f"mAP@0.5, mAP@0.5:0.95 and Training/Validation loss trajectories over {ep_count} epochs", 4)
         map_path = os.path.join(reports_dir, "map50_comparison.png")
         loss_path = os.path.join(reports_dir, "loss_comparison.png")
         ax1 = fig.add_axes([0.08, 0.12, 0.40, 0.72])
