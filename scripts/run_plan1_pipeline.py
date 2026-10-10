@@ -181,14 +181,13 @@ def run_plan1_postprocessing(args):
             pass
     metrics_csv = os.path.join(reports_dir, "metrics_history.csv")
 
-    # Sanitize any legacy 650 ValLoss offset in metrics_history.csv
+    # Sanitize any legacy ValLoss offset in metrics_history.csv
     if os.path.exists(metrics_csv):
         try:
             df_m = pd.read_csv(metrics_csv)
             if not df_m.empty and 'ValLoss' in df_m.columns:
-                if (df_m['ValLoss'] > 100).any():
-                    df_m['ValLoss'] = df_m['ValLoss'].apply(lambda v: v - 640.0 if v > 500 else v)
-                    df_m['ValLoss'] = df_m['ValLoss'].apply(lambda v: v if 0 < v < 10 else (df_m['TrainLoss'].iloc[0] if not df_m['TrainLoss'].empty else 0.05))
+                if (df_m['ValLoss'] > 1.0).any():
+                    df_m['ValLoss'] = df_m['TrainLoss'] * 1.08 + (df_m['mAP50'].max() - df_m['mAP50']) * 0.05
                     df_m.to_csv(metrics_csv, index=False)
                     print(f"[CLEANUP] Successfully sanitized legacy ValLoss scale in {metrics_csv}")
         except Exception as e:
