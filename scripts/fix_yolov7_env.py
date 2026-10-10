@@ -242,7 +242,6 @@ def patch_yolov7_train_py_resume(yolov7_dir: str = "."):
     )
 
     replacement_block = """    if opt.resume:
-        # --- Plan 1 v4.0 Robust Resume Namespace Handler ---
         _target_ckpt = opt.resume if isinstance(opt.resume, str) else (ckpt if 'ckpt' in locals() else (chkpt if 'chkpt' in locals() else ''))
         assert os.path.isfile(_target_ckpt), f'ERROR: --resume checkpoint {_target_ckpt} does not exist'
 
@@ -251,10 +250,6 @@ def patch_yolov7_train_py_resume(yolov7_dir: str = "."):
             Path(_target_ckpt).parent / 'opt.yaml',
             Path('opt.yaml'),
             Path('checkpoints/opt.yaml'),
-            Path('runs/train/stage_1/opt.yaml'),
-            Path('runs/train/stage_2/opt.yaml'),
-            Path('runs/train/stage_3/opt.yaml'),
-            Path('runs/train/stage_4/opt.yaml'),
         ]
         _opt_file = next((c for c in _opt_candidates if c.exists()), None)
         _loaded_dict = {}
@@ -264,13 +259,6 @@ def patch_yolov7_train_py_resume(yolov7_dir: str = "."):
                     _loaded = yaml.load(_f, Loader=yaml.SafeLoader)
                     if isinstance(_loaded, dict):
                         _loaded_dict = _loaded
-            except Exception:
-                pass
-        else:
-            try:
-                _d = torch.load(_target_ckpt, map_location='cpu')
-                if isinstance(_d, dict) and 'opt' in _d and _d['opt'] is not None:
-                    _loaded_dict = _d['opt'] if isinstance(_d['opt'], dict) else vars(_d['opt'])
             except Exception:
                 pass
 
@@ -295,7 +283,7 @@ def patch_yolov7_train_py_resume(yolov7_dir: str = "."):
 
         opt = argparse.Namespace(**_merged)
         _tb = getattr(opt, 'total_batch_size', getattr(opt, 'batch_size', 8))
-        opt.cfg, opt.weights, opt.resume, opt.batch_size, opt.global_rank, opt.local_rank = '', _target_ckpt, True, _tb, *apriori
+        opt.cfg, opt.weights, opt.resume, opt.batch_size = '', _target_ckpt, True, _tb
         # ---------------------------------------------------
 """
 
@@ -322,13 +310,9 @@ def patch_yolov7_train_py_epochs(yolov7_dir: str = "."):
         content = f.read()
 
     old_target = "start_epoch = ckpt['epoch'] + 1"
-    replacement = """start_epoch = ckpt['epoch'] + 1 if isinstance(ckpt, dict) and 'epoch' in ckpt and ckpt['epoch'] is not None else 0
-        if epochs <= start_epoch:
-            logger.info(f'[EPOCH FIX] Target epochs ({epochs}) <= start_epoch ({start_epoch}). Adjusting total epochs target to {start_epoch + max(opt.epochs, 10)}')
-            epochs = start_epoch + (opt.epochs if opt.epochs <= 30 else (opt.epochs - start_epoch if opt.epochs > start_epoch else 30))
-        logger.info(f'[TRAIN] Effective start_epoch={start_epoch}, total_target_epochs={epochs}, epochs_to_run={epochs - start_epoch}')"""
+    replacement = "start_epoch = ckpt['epoch'] + 1 if isinstance(ckpt, dict) and 'epoch' in ckpt and ckpt['epoch'] is not None and ckpt['epoch'] >= 0 else 0"
 
-    if old_target in content and "[EPOCH FIX]" not in content:
+    if old_target in content:
         content = content.replace(old_target, replacement)
         with open(train_py, "w", encoding="utf-8") as f:
             f.write(content)

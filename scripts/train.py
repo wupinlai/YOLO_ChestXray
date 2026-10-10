@@ -428,8 +428,18 @@ def main():
     print("=" * 70)
 
     log_gpu_usage(opt.reports_dir)
-    res = subprocess.run(full_cmd, shell=True)
-    exit_code = res.returncode
+    proc = subprocess.Popen(
+        full_cmd,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        universal_newlines=True,
+        bufsize=1
+    )
+    for line in proc.stdout:
+        print(line, end="", flush=True)
+    proc.wait()
+    exit_code = proc.returncode
     log_gpu_usage(opt.reports_dir)
 
     print("=" * 70)
