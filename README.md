@@ -25,6 +25,7 @@
 ## 🩺 Dataset Information
 
 - **Dataset**: [ChestXray8 YOLO Annotated Object Detection](https://www.kaggle.com/datasets/spritan1/yolo-annotated-chestxray-8-object-detection/data)
+- **Detailed Specification & Analysis Report**: 📖 [**DATASET_ANALYSIS.md**](DATASET_ANALYSIS.md) *(完整 14 類病理特徵、背景負樣本機制、樣本分佈統計表)*
 - **Format**: YOLO format (Normalized bounding box: `<class_id> <x_center> <y_center> <width> <height>`)
 - **Total Classes**: 14 Chest Pathologies
 
