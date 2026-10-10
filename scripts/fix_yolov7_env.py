@@ -338,6 +338,26 @@ def patch_yolov7_train_py_lr(yolov7_dir: str = "."):
         print(f"[ENV FIX] Successfully patched {train_py.name} for safe learning rate retrieval (initial_lr KeyError prevention).")
 
 
+def patch_yolov7_datasets_py(yolov7_dir: str = "."):
+    """Patch utils/datasets.py in YOLOv7 to prevent KeyError for paste_in and other hyp parameters."""
+    ds_py = Path(yolov7_dir) / "utils" / "datasets.py"
+    if not ds_py.exists():
+        return
+
+    with open(ds_py, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    modified = False
+    if "hyp['paste_in']" in content:
+        content = content.replace("hyp['paste_in']", "hyp.get('paste_in', 0.0)")
+        modified = True
+
+    if modified:
+        with open(ds_py, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"[ENV FIX] Successfully patched {ds_py.name} for safe paste_in hyperparameter access.")
+
+
 def setup_plan1_4_environment(yolov7_dir: str = ".", reports_dir: str = "reports"):
     """Main entrypoint for Plan 1 v4.0 environment setup & compatibility enforcement."""
     # Disable WANDB completely
@@ -347,6 +367,7 @@ def setup_plan1_4_environment(yolov7_dir: str = ".", reports_dir: str = "reports
     check_and_report_environment(reports_dir)
     patch_numpy_aliases()
     patch_yolov7_loss_py(yolov7_dir)
+    patch_yolov7_datasets_py(yolov7_dir)
     patch_yolov7_train_py_resume(yolov7_dir)
     patch_yolov7_train_py_epochs(yolov7_dir)
     patch_yolov7_train_py_lr(yolov7_dir)
@@ -360,4 +381,5 @@ if __name__ == "__main__":
     yolo_dir = sys.argv[1] if len(sys.argv) > 1 else "."
     rep_dir = sys.argv[2] if len(sys.argv) > 2 else "reports"
     setup_plan1_4_environment(yolo_dir, rep_dir)
+
 

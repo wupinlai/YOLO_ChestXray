@@ -31,3 +31,6 @@ fliplr: 0.5  # Flip left-right (0.5 probability)
 mosaic: 0.5  # Mosaic augmentation (0.5 probability, prevents excessive cluttering of pulmonary fields)
 mixup: 0.0  # Mixup disabled (Blending two distinct radiographs generates non-physiological phantom lesions)
 copy_paste: 0.0  # Segment copy-paste disabled
+paste_in: 0.0  # Image copy-paste disabled (prevents non-anatomical phantom lesion pasting)
+loss_ota: 1  # Enable Optimal Transport Assignment loss for YOLOv7
+
