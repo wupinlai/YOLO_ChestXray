@@ -168,8 +168,17 @@ def run_plan1_postprocessing(args):
     check_dataset_integrity(args.train_img_dir, args.train_label_dir, args.val_img_dir, args.val_label_dir, os.path.join(reports_dir, "dataset_integrity_report.csv"))
     run_dataset_analysis(args.data, args.train_img_dir, args.train_label_dir, args.val_img_dir, args.val_label_dir, os.path.join(reports_dir, "dataset_analysis"))
 
-    # 2. Progression Charts
-    print("[INFO] [2/8] Generating 4 Comparison Charts & Summary...")
+    # 2. Progression Charts (Refresh metrics_history.csv from available training stages)
+    print("[INFO] [2/8] Generating 4 Comparison Charts & Summary (150 Epochs aggregation)...")
+    try:
+        from scripts.train import update_metrics_and_lr
+        update_metrics_and_lr(Path("runs/train/stage_5"), reports_dir, stage=5, project_dir="runs/train")
+    except Exception:
+        try:
+            from train import update_metrics_and_lr
+            update_metrics_and_lr(Path("runs/train/stage_5"), reports_dir, stage=5, project_dir="runs/train")
+        except Exception:
+            pass
     metrics_csv = os.path.join(reports_dir, "metrics_history.csv")
     generate_comparison_plots(metrics_csv, reports_dir)
 
