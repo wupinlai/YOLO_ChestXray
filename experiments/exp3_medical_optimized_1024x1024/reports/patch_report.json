@@ -1,0 +1,15 @@
+{
+  "plan_version": "Plan 1 v4.0",
+  "weights_only_policy": "weights_only=False",
+  "patched_files": {
+    "train.py": "PATCHED (refreshed robust torch.load wrapper and literal calls)",
+    "test.py": "PATCHED (refreshed robust torch.load wrapper and literal calls)",
+    "detect.py": "PATCHED (refreshed robust torch.load wrapper and literal calls)",
+    "models/experimental.py": "PATCHED (refreshed robust torch.load wrapper and literal calls)",
+    "models/yolo.py": "PATCHED (refreshed robust torch.load wrapper and literal calls)",
+    "utils/torch_utils.py": "PATCHED (refreshed robust torch.load wrapper and literal calls)",
+    "utils/datasets.py": "PATCHED (refreshed robust torch.load wrapper and literal calls)",
+    "utils/loss.py": "PATCHED (refreshed robust torch.load wrapper and literal calls)"
+  },
+  "overall_status": "SUCCESS"
+}

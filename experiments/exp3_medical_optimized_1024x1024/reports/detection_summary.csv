@@ -1,0 +1,15 @@
+Class,DetectionCount,AvgConfidence,MaxConfidence,MinConfidence
+Atelectasis,671,0.0377,0.6289,0.001
+Cardiomegaly,4239,0.0051,0.1927,0.001
+Effusion,6561,0.0065,0.7632,0.001
+Infiltration,5314,0.0061,0.3005,0.001
+Mass,3440,0.0061,0.4534,0.001
+Nodule,0,0.0,0.0,0.0
+Pneumonia,1,0.0012,0.0012,0.0012
+Pneumothorax,0,0.0,0.0,0.0
+Consolidation,0,0.0,0.0,0.0
+Edema,4,0.0011,0.0012,0.0011
+Emphysema,1,0.0011,0.0011,0.0011
+Fibrosis,6,0.0012,0.0019,0.001
+Pleural_Thickening,2,0.001,0.001,0.001
+Hernia,5,0.0012,0.0013,0.0011
