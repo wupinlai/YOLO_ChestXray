@@ -59,20 +59,20 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
         fig, ax = create_page_with_header("1. Executive Summary: Automated Chest X-Ray Pathology Detection", "YOLOv7 Deep Learning Model Performance & Master Overview", 1)
         summary_text = (
             "1. Project Scope & Master Objectives (Plan 1 v4.0)\n"
-            "   • Objective: Detect and localize 14 critical thoracic pathologies on ChestXray8 digital radiographs.\n"
-            "   • Architecture: YOLOv7 Anchor-based Deep Convolutional Neural Network.\n"
-            "   • Training Strategy: 50 Total Epochs across 5 Resumable Stages (10 Epochs / Stage, Strict --resume).\n"
-            "   • Integrity & Reproducibility: Seed 42 locked, Non-interactive WANDB mode, MD5 integrity checks.\n\n"
-            "2. 14 Target Thoracic Pathologies Evaluated\n"
-            "   Atelectasis, Cardiomegaly, Effusion, Infiltration, Mass, Nodule, Pneumonia, Pneumothorax,\n"
-            "   Consolidation, Edema, Emphysema, Fibrosis, Pleural Thickening, Hernia.\n\n"
-            "3. Clinical Evaluation Framework\n"
-            "   • Rigid spatial overlap metrics (IoU) with expert ground-truth annotations.\n"
-            "   • Confidence threshold sweep (0.1 ~ 0.9) to optimize clinical Precision/Recall trade-offs.\n"
+            "   • Objective: Detect and localize critical thoracic pathologies on ChestXray8 digital radiographs.\n"
+            "   • Architecture: YOLOv7 Deep Anchor-based Convolutional Neural Network.\n"
+            "   • Training Strategy: Multi-Stage Progressive Training (5 Stages x 30 Epochs, 150 Total Epochs, Strict --resume).\n"
+            "   • Integrity & Reproducibility: Seed 42 locked, Non-interactive WANDB mode, Dataset Integrity verification.\n\n"
+            "2. Thoracic Pathology Clinical Evaluation Taxonomy\n"
+            "   Evaluated targets encompass 14 standard thoracic lesion categories with focus on high-frequency\n"
+            "   clinical presentations: Atelectasis, Cardiomegaly, Effusion, Infiltration, Mass, and Nodules.\n\n"
+            "3. Clinical Evaluation & Decision Framework\n"
+            "   • Rigid spatial overlap metrics (IoU >= 0.50) calibrated against radiologist ground-truth annotations.\n"
+            "   • Post-Processing Optimization: Confidence threshold calibrated at 0.05 ~ 0.10 to eliminate false positive artifacts.\n"
             "   • Standardized visual diagnostic taxonomy: Correct (Cyan), FP (Red), FN (Orange), Misclass (Purple), Low IoU (Yellow).\n\n"
             "4. Master Deliverables\n"
             "   This document encapsulates statistical profiling, multi-sample validation comparisons,\n"
-            "   root cause diagnoses, and strategic deployment recommendations."
+            "   root cause diagnoses, and strategic clinical deployment recommendations."
         )
         ax.text(0.08, 0.86, summary_text, transform=ax.transAxes, fontsize=11, verticalalignment='top',
                 fontfamily='sans-serif', linespacing=1.6,

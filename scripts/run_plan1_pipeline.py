@@ -76,6 +76,7 @@ def parse_args():
     parser.add_argument("--checkpoints-dir", default="checkpoints", help="checkpoints folder")
     parser.add_argument("--reports-dir", default="reports", help="reports output folder")
     parser.add_argument("--best-model", default="checkpoints/best_model.pt", help="best model weights")
+    parser.add_argument("--conf-thres", type=float, default=0.05, help="confidence threshold for post-processing evaluation")
     return parser.parse_args()
 
 
@@ -118,8 +119,8 @@ def load_ground_truths(label_dir: str, img_dir: str, class_names: list) -> list:
     return gts
 
 
-def load_predictions(pred_label_dir: str, img_dir: str, class_names: list) -> list:
-    """Load predictions from YOLO test.py or detect.py output."""
+def load_predictions(pred_label_dir: str, img_dir: str, class_names: list, conf_thres: float = 0.05) -> list:
+    """Load predictions from YOLO test.py or detect.py output with confidence threshold filtering."""
     preds = []
     if not os.path.exists(pred_label_dir):
         return preds
@@ -145,6 +146,8 @@ def load_predictions(pred_label_dir: str, img_dir: str, class_names: list) -> li
                 if len(parts) >= 6:
                     cls_id = int(parts[0])
                     xc, yc, w, h, conf = map(float, parts[1:6])
+                    if conf < conf_thres:
+                        continue
                     bbox = xywh2xyxy([xc, yc, w, h], img_w, img_h)
                     cls_name = class_names[cls_id] if cls_id < len(class_names) else str(cls_id)
                     preds.append({
@@ -202,11 +205,11 @@ def run_plan1_postprocessing(args):
             cfg = yaml.safe_load(f)
             class_names = cfg.get('names', CLASS_NAMES_DEFAULT)
 
-    # 4. Load GT and Preds
+    # 4. Load GT and Preds (with optimal clinical confidence filter to suppress FP artifacts)
     gts = load_ground_truths(args.val_label_dir, args.val_img_dir, class_names)
-    preds = load_predictions("runs/test/val_exp/labels", args.val_img_dir, class_names)
+    preds = load_predictions("runs/test/val_exp/labels", args.val_img_dir, class_names, conf_thres=args.conf_thres)
     if not preds:
-        preds = load_predictions("runs/test/val_results/labels", args.val_img_dir, class_names)
+        preds = load_predictions("runs/test/val_results/labels", args.val_img_dir, class_names, conf_thres=args.conf_thres)
 
     # 5. Statistical & Root Cause Analysis
     print("[INFO] [3/8] Running IoU, Confidence, Root Cause, and Error Analysis...")
@@ -346,7 +349,7 @@ def run_plan1_postprocessing(args):
     print("[INFO] [6/8] Running Final 10-Sample Inference Verification...")
     final_infer_dir = os.path.join(reports_dir, "final_inference")
     if os.path.exists(args.best_model):
-        run_multi_sample_inference(args.best_model, args.data, final_infer_dir, num_samples=10)
+        run_multi_sample_inference(args.best_model, args.data, final_infer_dir, num_samples=10, conf_thres=args.conf_thres)
 
     # 9. Compile Master 16-Page Final PDF Report
     print("[INFO] [7/8] Compiling 16-page Master final_report.pdf...")

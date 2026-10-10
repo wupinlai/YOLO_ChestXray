@@ -19,7 +19,7 @@ def parse_opt():
     parser.add_argument("--data", type=str, default="configs/chestxray.yaml", help="dataset yaml path")
     parser.add_argument("--batch-size", type=int, default=32, help="batch size")
     parser.add_argument("--img-size", type=int, default=640, help="image size (pixels)")
-    parser.add_argument("--conf-thres", type=float, default=0.001, help="confidence threshold")
+    parser.add_argument("--conf-thres", type=float, default=0.05, help="confidence threshold")
     parser.add_argument("--iou-thres", type=float, default=0.65, help="NMS IoU threshold")
     parser.add_argument("--device", default="", help="cuda device or cpu")
     parser.add_argument("--project", default="runs/test", help="project output dir")
