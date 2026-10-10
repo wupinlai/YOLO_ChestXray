@@ -48,15 +48,16 @@ try:
     except Exception:
         pass
 
-    _orig_torch_load = torch.load
-    def _compat_torch_load(*args, **kwargs):
-        if 'weights_only' not in kwargs:
-            try:
-                return _orig_torch_load(*args, **kwargs, weights_only=False)
-            except TypeError:
-                pass
-        return _orig_torch_load(*args, **kwargs)
-    torch.load = _compat_torch_load
+    if not hasattr(torch, '_orig_torch_load_unwrapped'):
+        torch._orig_torch_load_unwrapped = torch.load
+        def _compat_torch_load(*args, **kwargs):
+            if 'weights_only' not in kwargs:
+                try:
+                    return torch._orig_torch_load_unwrapped(*args, **kwargs, weights_only=False)
+                except TypeError:
+                    pass
+            return torch._orig_torch_load_unwrapped(*args, **kwargs)
+        torch.load = _compat_torch_load
     torch.manual_seed(SEED)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(SEED)
