@@ -136,23 +136,38 @@ def log_gpu_usage(reports_dir: str):
         pass
 
 
-def update_metrics_and_lr(exp_dir: Path, reports_dir: str):
-    """Parse results.txt / results.csv from YOLOv7 output and update reports/metrics_history.csv and learning_rate_curve.png."""
+def update_metrics_and_lr(exp_dir: Path, reports_dir: str, stage: int = 1, project_dir: str = "runs/train"):
+    """Parse results.txt / results.csv across all trained stages to form complete 150-epoch metrics_history.csv and learning_rate_curve.png."""
     os.makedirs(reports_dir, exist_ok=True)
     history_file = Path(reports_dir) / "metrics_history.csv"
     lr_plot = Path(reports_dir) / "learning_rate_curve.png"
 
-    results_txt = exp_dir / "results.txt"
-    records = []
-    lrs = []
+    all_stage_records = []
+    all_lrs = []
 
-    if results_txt.exists():
-        with open(results_txt, 'r') as f:
+    # Look for all available stages under project_dir or current exp_dir
+    stages_to_check = []
+    proj_path = Path(project_dir)
+    for s_idx in range(1, 6):
+        s_dir = proj_path / f"stage_{s_idx}"
+        if s_dir.exists() and (s_dir / "results.txt").exists():
+            stages_to_check.append((s_idx, s_dir / "results.txt"))
+        elif s_idx == stage and exp_dir.exists() and (exp_dir / "results.txt").exists():
+            stages_to_check.append((s_idx, exp_dir / "results.txt"))
+
+    # Fallback to single exp_dir if no multi-stage dirs found
+    if not stages_to_check and exp_dir.exists() and (exp_dir / "results.txt").exists():
+        stages_to_check.append((stage, exp_dir / "results.txt"))
+
+    for s_num, res_file in stages_to_check:
+        epoch_offset = (s_num - 1) * 30
+        with open(res_file, 'r') as f:
             for line in f:
                 parts = line.strip().split()
                 if len(parts) >= 11:
                     try:
-                        epoch = int(parts[0].split('/')[0]) + 1
+                        raw_ep = int(parts[0].split('/')[0]) + 1
+                        epoch = epoch_offset + raw_ep if raw_ep <= 30 else raw_ep
                         train_box_loss = float(parts[2])
                         train_obj_loss = float(parts[3])
                         train_cls_loss = float(parts[4])
@@ -171,7 +186,7 @@ def update_metrics_and_lr(exp_dir: Path, reports_dir: str):
 
                         lr = float(parts[15]) if len(parts) > 15 else 0.001
 
-                        records.append({
+                        all_stage_records.append({
                             'Epoch': epoch,
                             'Precision': precision,
                             'Recall': recall,
@@ -180,17 +195,17 @@ def update_metrics_and_lr(exp_dir: Path, reports_dir: str):
                             'TrainLoss': train_loss,
                             'ValLoss': val_loss
                         })
-                        lrs.append({'Epoch': epoch, 'LR': lr})
+                        all_lrs.append({'Epoch': epoch, 'LR': lr})
                     except Exception:
                         continue
 
-    if records:
-        df_new = pd.DataFrame(records)
+    if all_stage_records:
+        df_new = pd.DataFrame(all_stage_records).drop_duplicates(subset=['Epoch'], keep='last').sort_values(by='Epoch')
         df_new.to_csv(history_file, index=False)
-        print(f"[SUCCESS] Updated metrics history: {history_file} ({len(records)} epochs recorded)")
+        print(f"[SUCCESS] Updated metrics history: {history_file} ({len(df_new)} epochs recorded, max epoch={df_new['Epoch'].max()})")
 
-        if lrs:
-            df_lr = pd.DataFrame(lrs)
+        if all_lrs:
+            df_lr = pd.DataFrame(all_lrs).drop_duplicates(subset=['Epoch'], keep='last').sort_values(by='Epoch')
             plt.figure(figsize=(10, 5), dpi=300)
             plt.plot(df_lr['Epoch'], df_lr['LR'], color='#2980b9', lw=2.5, marker='.')
             plt.title('Learning Rate Schedule Progression', fontsize=14, fontweight='bold')
@@ -487,7 +502,7 @@ def main():
     if exit_code == 0:
         exp_dir = resolve_exp_dir(opt.project, opt.name)
         archive_and_verify_checkpoints(exp_dir, opt.stage, cumulative_target_epochs, opt.checkpoint_dir, opt.reports_dir)
-        update_metrics_and_lr(exp_dir, opt.reports_dir)
+        update_metrics_and_lr(exp_dir, opt.reports_dir, opt.stage, opt.project)
         print(f"[BREAKPOINT 4/4] [SUCCESS] Stage {opt.stage} training finished and verified successfully.")
     else:
         print(f"[ERROR] Training process exited with non-zero return code: {exit_code}")
