@@ -94,3 +94,27 @@
 ### 6. 完整文檔與配置規範
 * 新增 [`experiments/EXPERIMENT_CONFIG_SPEC.md`](../experiments/EXPERIMENT_CONFIG_SPEC.md) 詳實記錄三組實驗的 25+ 項超參數、損失權重、資料增強與階段指令。
 * 更新專案首頁 [`README.md`](../README.md)，提供三組實驗的一鍵 Colab 啟動徽章與對照摘要。
+
+---
+
+### 7. 關鍵技術 QA 與深度解析 (Key FAQs & Technical Insights)
+
+#### Q1: 為何 Stage 2 訓練終端機顯示由 `0/29` 開始，而不是 `31~59`？
+* **權重特徵完全繼承**：
+  日誌顯示 `Transferred 564/566 items from checkpoints/checkpoint_30.pt`，代表 Stage 1 訓練所得之病灶特徵與卷積權重已 **100% 完整載入**，模型並非隨機初始化從頭訓練。
+* **YOLO 底層計數與優化器設計**：
+  當使用 `--weights checkpoint_30.pt` 進行階段式遷移訓練時，YOLO 內部將其視為進程單元，終端機顯示格式為「當前進程循環索引 / (目標輪數 - 1)」，即 `0/29` ~ `29/29`（共執行 30 個 Epochs）。
+* **外部管理架構自動對齊**：
+  [`scripts/train.py`](file:///d:/AI%20Project/研究方法/YOLO_ChestXray/scripts/train.py) 會自動對齊累積進度標籤（標註當前為總進度第 31 ~ 60 輪），並在完成時自動歸檔為 `checkpoint_60.pt` 與同步至 Google Drive，確保研究進度與總輪次計算完全精準。
+
+#### Q2: 為何 Exp 1 沒有遇到此問題，而是在 Exp 2 Stage 2 才浮現？
+1. **執行方式的演進（直跑 vs 自動化 Runner）**：
+   Exp 1 初始實驗直接在 Shell/Colab 執行官方 `train.py`（具備原生 TTY 終端機特性），進度條天生支援 `\r` 原位更新；Exp 2 為實現自動同步 Google Drive 與防中斷，引入了 `scripts/train.py` 子進程管理層，在非 TTY 管道下引發了緩衝與換行洗版問題。
+2. **跨階段續接首次發生於 Stage 2**：
+   Stage 1 載入的是官方預訓練權重 `yolov7.pt`；**Stage 2 是整個專案中，第一次真正執行「載入 Stage 1 產出的 checkpoint_30.pt 並接續訓練」**，因而首次觸發了權重銜接與輪數累積計算機制。
+3. **Colab 雲端環境近期底層升級（PyTorch 2.6）**：
+   Colab 預設鏡像升級至 PyTorch 2.6 / NumPy 2.x，強制開啟 `weights_only=True` 安全限制，阻擋了 YOLO 權重載入；為了修補此問題而建立的補丁層在多模組調用時引發了遞迴覆蓋問題。
+4. **解析度差異的時間放大效應（640 vs 1024）**：
+   - **Exp 1 (640x640)**：單輪僅 15 秒、顯存佔用 3.5 GB，即使輪數或輸出有冗餘也不易察覺。
+   - **Exp 2 (1024x1024)**：運算像素暴增 2.56 倍，單輪需 1 分 20 秒、顯存佔用達 13.8 GB。在此高負載下，任何設定偏差（多跑 30 輪）或輸出問題都會造成顯著的時間與資源消耗，因此在 Exp 2 中被嚴格排查並徹底根除。
+
