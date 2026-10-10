@@ -38,10 +38,10 @@ try:
     try:
         import numpy as np_glob
         _sg = [getattr(np_glob, 'ndarray', None), getattr(np_glob, 'dtype', None)]
-        if hasattr(np_glob, 'core') and hasattr(np_glob.core, 'multiarray'):
-            _sg.append(getattr(np_glob.core.multiarray, '_reconstruct', None))
         if hasattr(np_glob, '_core') and hasattr(np_glob._core, 'multiarray'):
             _sg.append(getattr(np_glob._core.multiarray, '_reconstruct', None))
+        elif hasattr(np_glob, 'core') and hasattr(np_glob.core, 'multiarray'):
+            _sg.append(getattr(np_glob.core.multiarray, '_reconstruct', None))
         _sg = [g for g in _sg if g is not None]
         if hasattr(torch.serialization, 'add_safe_globals'):
             torch.serialization.add_safe_globals(_sg)
@@ -290,12 +290,15 @@ def archive_and_verify_checkpoints(exp_dir: Path, stage: int, epochs: int, check
         sys.exit(1)
 
     target_stage_ckpt = Path(checkpoint_dir) / f"checkpoint_{epochs}.pt"
+    target_stage_30 = Path(checkpoint_dir) / f"checkpoint_{stage * 30}.pt"
     target_stage_legacy = Path(checkpoint_dir) / f"checkpoint_{stage * 10}.pt"
     target_best_ckpt = Path(checkpoint_dir) / "best_model.pt"
     target_last_ckpt = Path(checkpoint_dir) / "last.pt"
 
     if last_pt.exists():
         shutil.copy(last_pt, target_stage_ckpt)
+        if not target_stage_30.exists():
+            shutil.copy(last_pt, target_stage_30)
         if not target_stage_legacy.exists():
             shutil.copy(last_pt, target_stage_legacy)
         shutil.copy(last_pt, target_last_ckpt)

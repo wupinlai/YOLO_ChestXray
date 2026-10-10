@@ -116,7 +116,7 @@ def patch_torch_load_in_files(yolov7_dir: str = ".", reports_dir: str = "reports
 # --- Plan 1 v4.0 PyTorch Compatibility Layer ---
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
-import torch
+import sys, logging, torch
 try:
     import numpy as np
     _sg = [getattr(np, 'ndarray', None), getattr(np, 'dtype', None)]
@@ -129,6 +129,9 @@ try:
         torch.serialization.add_safe_globals(_sg)
 except Exception:
     pass
+
+# Ensure un-muffled real-time stdout logging in Colab
+logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[logging.StreamHandler(sys.stdout)], force=True)
 
 _orig_torch_load = torch.load
 def _compat_torch_load(*args, **kwargs):
