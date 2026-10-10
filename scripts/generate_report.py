@@ -149,7 +149,7 @@ def generate_final_report_pdf(reports_dir: str = "reports", output_pdf: str = "r
         plt.close(fig)
 
         # PAGE 5: Best/Worst Epoch
-        fig, ax = create_page_with_header("5. Best/Worst Epoch & Learning Dynamics", "Checkpoint selection, learning rate schedule, and Precision-Recall progression", 5)
+        fig, ax = create_page_with_header("5. Best/Worst Epoch & Learning Dynamics", f"Checkpoint selection, learning rate schedule, and Precision-Recall progression across {ep_count} epochs", 5)
         lr_path = os.path.join(reports_dir, "learning_rate_curve.png")
         pr_path = os.path.join(reports_dir, "precision_recall_comparison.png")
         ax1 = fig.add_axes([0.08, 0.12, 0.40, 0.72])
