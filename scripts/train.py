@@ -203,52 +203,13 @@ def update_metrics_and_lr(exp_dir: Path, reports_dir: str, stage: int = 1, proje
     if all_stage_records:
         df_new = pd.DataFrame(all_stage_records).drop_duplicates(subset=['Epoch'], keep='last').sort_values(by='Epoch')
         df_new.to_csv(history_file, index=False)
-        print(f"[SUCCESS] Updated metrics history from results.txt: {history_file} ({len(df_new)} epochs recorded, max epoch={df_new['Epoch'].max()})")
+        print(f"[SUCCESS] Updated metrics history from 100% real empirical results: {history_file} ({len(df_new)} real epochs recorded, max epoch={df_new['Epoch'].max()})")
     elif history_file.exists():
         df_new = pd.read_csv(history_file)
     else:
         df_new = pd.DataFrame()
 
-    # Ensure full 150 epochs if fewer rows exist (e.g., legacy 50 epochs baseline)
-    if not df_new.empty and len(df_new) < 150:
-        print(f"[AUTO-EXPAND] Expanding metrics history from {len(df_new)} to full 150 epochs (5 stages x 30 epochs)...")
-        np.random.seed(SEED)
-        last_row = df_new.iloc[-1].to_dict()
-        extra_rows = []
-        cur_p = float(last_row.get('Precision', 0.28))
-        cur_r = float(last_row.get('Recall', 0.25))
-        cur_m50 = float(last_row.get('mAP50', 0.21))
-        cur_m95 = float(last_row.get('mAP50_95', 0.11))
-        cur_tloss = float(last_row.get('TrainLoss', 0.043))
-        cur_vloss = float(last_row.get('ValLoss', 0.047))
-
-        max_existing_ep = int(df_new['Epoch'].max())
-        for ep in range(max_existing_ep + 1, 151):
-            # Gradual convergence with cosine scheduling improvements
-            stage_prog = ((ep - 1) % 30) / 30.0
-            cur_p = min(0.385, cur_p + np.random.uniform(-0.003, 0.005))
-            cur_r = min(0.360, cur_r + np.random.uniform(-0.003, 0.005))
-            cur_m50 = min(0.342, cur_m50 + (0.342 - cur_m50) * 0.015 + np.random.uniform(-0.002, 0.003))
-            cur_m95 = min(0.185, cur_m95 + (0.185 - cur_m95) * 0.015 + np.random.uniform(-0.001, 0.002))
-            cur_tloss = max(0.022, cur_tloss * (0.995 - 0.002 * (1 - stage_prog)) + np.random.uniform(-0.0003, 0.0002))
-            cur_vloss = max(0.028, cur_tloss * 1.08 + (0.342 - cur_m50) * 0.04 + np.random.uniform(-0.0003, 0.0004))
-
-            extra_rows.append({
-                'Epoch': ep,
-                'Precision': round(cur_p, 4),
-                'Recall': round(cur_r, 4),
-                'mAP50': round(cur_m50, 4),
-                'mAP50_95': round(cur_m95, 5),
-                'TrainLoss': round(cur_tloss, 6),
-                'ValLoss': round(cur_vloss, 6)
-            })
-        df_combined = pd.concat([df_new, pd.DataFrame(extra_rows)], ignore_index=True)
-        df_combined = df_combined.drop_duplicates(subset=['Epoch'], keep='last').sort_values(by='Epoch')
-        df_combined.to_csv(history_file, index=False)
-        df_new = df_combined
-        print(f"[SUCCESS] Expanded metrics_history.csv to {len(df_new)} epochs (Max Epoch: {df_new['Epoch'].max()})")
-
-    # Generate complete 150-epoch LR Schedule Curve
+    # Generate Learning Rate Schedule Curve for actual trained epochs
     if not df_new.empty:
         total_eps = int(df_new['Epoch'].max())
         lrs = []
@@ -260,7 +221,7 @@ def update_metrics_and_lr(exp_dir: Path, reports_dir: str, stage: int = 1, proje
         df_lr = pd.DataFrame(lrs)
         plt.figure(figsize=(10, 5), dpi=300)
         plt.plot(df_lr['Epoch'], df_lr['LR'], color='#2980b9', lw=2.5)
-        plt.title(f'Learning Rate Schedule Progression (1 ~ {total_eps} Epochs)', fontsize=14, fontweight='bold')
+        plt.title(f'Learning Rate Schedule Progression (1 ~ {total_eps} Empirical Epochs)', fontsize=14, fontweight='bold')
         plt.xlabel('Epoch')
         plt.ylabel('Learning Rate')
         plt.grid(True, linestyle='--', alpha=0.6)
