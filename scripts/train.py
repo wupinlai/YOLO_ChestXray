@@ -137,8 +137,8 @@ def log_gpu_usage(reports_dir: str):
         pass
 
 
-def update_metrics_and_lr(exp_dir: Path, reports_dir: str, stage: int = 1, project_dir: str = "runs/train"):
-    """Parse results.txt / results.csv across all trained stages to form complete 150-epoch metrics_history.csv and learning_rate_curve.png."""
+def update_metrics_and_lr(exp_dir: Path, reports_dir: str, stage: int = 1, project_dir: str = "runs/train", drive_dir: str = ""):
+    """Parse results.txt / results.csv across all trained stages to form complete metrics_history.csv and learning_rate_curve.png."""
     os.makedirs(reports_dir, exist_ok=True)
     history_file = Path(reports_dir) / "metrics_history.csv"
     lr_plot = Path(reports_dir) / "learning_rate_curve.png"
@@ -146,13 +146,21 @@ def update_metrics_and_lr(exp_dir: Path, reports_dir: str, stage: int = 1, proje
     all_stage_records = []
     all_lrs = []
 
-    # Look for all available stages under project_dir or current exp_dir
+    # Look for all available stages under local project_dir, current exp_dir, or Google Drive logs
     stages_to_check = []
     proj_path = Path(project_dir)
     for s_idx in range(1, 6):
+        # 1. Check local VM directory
         s_dir = proj_path / f"stage_{s_idx}"
+        drive_stage_res = Path(drive_dir) / "logs" / f"stage_{s_idx}" / "results.txt" if drive_dir else None
+        drive_stage_res_alt = Path(drive_dir) / "logs" / f"stage_{s_idx}_results.txt" if drive_dir else None
+
         if s_dir.exists() and (s_dir / "results.txt").exists():
             stages_to_check.append((s_idx, s_dir / "results.txt"))
+        elif drive_stage_res and drive_stage_res.exists() and drive_stage_res.stat().st_size > 0:
+            stages_to_check.append((s_idx, drive_stage_res))
+        elif drive_stage_res_alt and drive_stage_res_alt.exists() and drive_stage_res_alt.stat().st_size > 0:
+            stages_to_check.append((s_idx, drive_stage_res_alt))
         elif s_idx == stage and exp_dir.exists() and (exp_dir / "results.txt").exists():
             stages_to_check.append((s_idx, exp_dir / "results.txt"))
 
@@ -268,15 +276,16 @@ def check_stage_already_completed(stage: int, epochs: int, checkpoint_dir: str, 
         if not (Path(checkpoint_dir) / "best_model.pt").exists():
             shutil.copy(actual_ckpt, Path(checkpoint_dir) / "best_model.pt")
         
-        # Ensure metrics history is updated even when skipping
-        update_metrics_and_lr(Path(checkpoint_dir), reports_dir, stage, "runs/train")
+        # Ensure metrics history is updated with all available real stage results even when skipping
+        update_metrics_and_lr(Path(checkpoint_dir), reports_dir, stage, "runs/train", drive_dir)
         
         # Sync updated metrics_history to Google Drive immediately
         if drive_dir and os.path.exists(drive_dir):
             try:
                 os.makedirs(Path(drive_dir) / "reports", exist_ok=True)
-                shutil.copy(Path(reports_dir) / "metrics_history.csv", Path(drive_dir) / "reports" / "metrics_history.csv")
-                shutil.copy(Path(reports_dir) / "metrics_history.csv", Path(drive_dir) / "metrics_history.csv")
+                if (Path(reports_dir) / "metrics_history.csv").exists():
+                    shutil.copy(Path(reports_dir) / "metrics_history.csv", Path(drive_dir) / "reports" / "metrics_history.csv")
+                    shutil.copy(Path(reports_dir) / "metrics_history.csv", Path(drive_dir) / "metrics_history.csv")
             except Exception:
                 pass
 
@@ -532,7 +541,36 @@ def main():
     if exit_code == 0:
         exp_dir = resolve_exp_dir(opt.project, opt.name)
         archive_and_verify_checkpoints(exp_dir, opt.stage, cumulative_target_epochs, opt.checkpoint_dir, opt.reports_dir)
-        update_metrics_and_lr(exp_dir, opt.reports_dir, opt.stage, opt.project)
+        update_metrics_and_lr(exp_dir, opt.reports_dir, opt.stage, opt.project, opt.drive_dir)
+
+        # Automatic Google Drive Synchronization for Fault-Tolerant Reconnection
+        if opt.drive_dir and os.path.exists(opt.drive_dir):
+            try:
+                # 1. Sync Checkpoints
+                os.makedirs(Path(opt.drive_dir) / "checkpoints", exist_ok=True)
+                target_ckpt = Path(opt.checkpoint_dir) / f"checkpoint_{cumulative_target_epochs}.pt"
+                target_best = Path(opt.checkpoint_dir) / "best_model.pt"
+                if target_ckpt.exists():
+                    shutil.copy(target_ckpt, Path(opt.drive_dir) / "checkpoints" / target_ckpt.name)
+                if target_best.exists():
+                    shutil.copy(target_best, Path(opt.drive_dir) / "checkpoints" / "best_model.pt")
+
+                # 2. Sync Stage Logs (results.txt)
+                drive_logs = Path(opt.drive_dir) / "logs" / f"stage_{opt.stage}"
+                os.makedirs(drive_logs, exist_ok=True)
+                if (exp_dir / "results.txt").exists():
+                    shutil.copy(exp_dir / "results.txt", drive_logs / "results.txt")
+                    shutil.copy(exp_dir / "results.txt", Path(opt.drive_dir) / "logs" / f"stage_{opt.stage}_results.txt")
+
+                # 3. Sync Metrics History
+                os.makedirs(Path(opt.drive_dir) / "reports", exist_ok=True)
+                if (Path(opt.reports_dir) / "metrics_history.csv").exists():
+                    shutil.copy(Path(opt.reports_dir) / "metrics_history.csv", Path(opt.drive_dir) / "reports" / "metrics_history.csv")
+                    shutil.copy(Path(opt.reports_dir) / "metrics_history.csv", Path(opt.drive_dir) / "metrics_history.csv")
+                print(f"☁️ [DRIVE AUTO-SYNC] Stage {opt.stage} checkpoints, logs, and metrics_history.csv successfully backed up to Google Drive!")
+            except Exception as e:
+                print(f"[DRIVE SYNC WARNING] Backup encounter exception: {e}")
+
         print(f"[BREAKPOINT 4/4] [SUCCESS] Stage {opt.stage} training finished and verified successfully.")
     else:
         print(f"[ERROR] Training process exited with non-zero return code: {exit_code}")
