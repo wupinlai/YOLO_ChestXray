@@ -384,38 +384,60 @@ def main():
         f"--name {opt.name}",
         "--exist-ok",
     ]
-    if opt.device:
-        cmd.append(f"--device {opt.device}")
+    # Hardware & CUDA Environment Diagnostic
+    try:
+        import torch
+        cuda_avail = torch.cuda.is_available()
+        gpu_name = torch.cuda.get_device_name(0) if cuda_avail else "None (CPU Runtime)"
+        print(f"[HARDWARE DIAGNOSTIC] CUDA Available: {cuda_avail} | Active Device: {gpu_name}")
+        if not cuda_avail:
+            print("=" * 70)
+            print("⚠️  [CRITICAL WARNING] GPU is NOT available in this Python session!")
+            print("⚠️  If running in Google Colab, please switch Runtime to GPU (T4 / L4 GPU) via:")
+            print("⚠️  Runtime -> Change runtime type -> T4 GPU -> Save.")
+            print("=" * 70)
+    except Exception as e:
+        print(f"[HARDWARE DIAGNOSTIC] Could not verify GPU: {e}")
 
     try:
         try:
-            from scripts.fix_yolov7_env import patch_torch_load_in_files, patch_yolov7_train_py_resume, patch_yolov7_train_py_epochs, patch_yolov7_train_py_lr
+            from scripts.fix_yolov7_env import patch_torch_load_in_files, patch_yolov7_loss_py, patch_yolov7_train_py_resume, patch_yolov7_train_py_epochs, patch_yolov7_train_py_lr
             patch_torch_load_in_files(".", opt.reports_dir)
+            patch_yolov7_loss_py(".")
             patch_yolov7_train_py_resume(".")
             patch_yolov7_train_py_epochs(".")
             patch_yolov7_train_py_lr(".")
         except ImportError:
-            from fix_yolov7_env import patch_torch_load_in_files, patch_yolov7_train_py_resume, patch_yolov7_train_py_epochs, patch_yolov7_train_py_lr
+            from fix_yolov7_env import patch_torch_load_in_files, patch_yolov7_loss_py, patch_yolov7_train_py_resume, patch_yolov7_train_py_epochs, patch_yolov7_train_py_lr
             patch_torch_load_in_files(".", opt.reports_dir)
+            patch_yolov7_loss_py(".")
             patch_yolov7_train_py_resume(".")
             patch_yolov7_train_py_epochs(".")
             patch_yolov7_train_py_lr(".")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[ENV FIX WARNING] Patch execution encountered error: {e}")
 
     full_cmd = " ".join(cmd)
-    print(f"[EXEC] Running command: {full_cmd}")
+    print("=" * 70)
+    print(f"[BREAKPOINT 1/4] Environment verification & patch applied successfully.")
+    print(f"[BREAKPOINT 2/4] Executing training process via subprocess:")
+    print(f"[EXEC CMD] {full_cmd}")
+    print("=" * 70)
 
     log_gpu_usage(opt.reports_dir)
     res = subprocess.run(full_cmd, shell=True)
     exit_code = res.returncode
     log_gpu_usage(opt.reports_dir)
 
+    print("=" * 70)
+    print(f"[BREAKPOINT 3/4] Subprocess execution finished with exit_code={exit_code}")
+    print("=" * 70)
+
     if exit_code == 0:
         exp_dir = resolve_exp_dir(opt.project, opt.name)
         archive_and_verify_checkpoints(exp_dir, opt.stage, opt.epochs, opt.checkpoint_dir, opt.reports_dir)
         update_metrics_and_lr(exp_dir, opt.reports_dir)
-        print(f"[SUCCESS] Stage {opt.stage} training finished and verified successfully.")
+        print(f"[BREAKPOINT 4/4] [SUCCESS] Stage {opt.stage} training finished and verified successfully.")
     else:
         print(f"[ERROR] Training process exited with non-zero return code: {exit_code}")
         # Directory diagnostic dump

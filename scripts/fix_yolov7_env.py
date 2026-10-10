@@ -106,6 +106,8 @@ def patch_torch_load_in_files(yolov7_dir: str = ".", reports_dir: str = "reports
         Path(yolov7_dir) / "models" / "experimental.py",
         Path(yolov7_dir) / "models" / "yolo.py",
         Path(yolov7_dir) / "utils" / "torch_utils.py",
+        Path(yolov7_dir) / "utils" / "datasets.py",
+        Path(yolov7_dir) / "utils" / "loss.py",
     ]
 
     patch_results = {}
