@@ -171,17 +171,18 @@ def run_plan1_postprocessing(args):
     check_dataset_integrity(args.train_img_dir, args.train_label_dir, args.val_img_dir, args.val_label_dir, os.path.join(reports_dir, "dataset_integrity_report.csv"))
     run_dataset_analysis(args.data, args.train_img_dir, args.train_label_dir, args.val_img_dir, args.val_label_dir, os.path.join(reports_dir, "dataset_analysis"))
 
-    # 2. Progression Charts (Refresh metrics_history.csv from available training stages)
+    # 2. Progression Charts (Refresh metrics_history.csv from available training stages if present)
     print("[INFO] [2/8] Generating 4 Comparison Charts & Summary (150 Epochs aggregation)...")
-    try:
-        from scripts.train import update_metrics_and_lr
-        update_metrics_and_lr(Path("runs/train/stage_5"), reports_dir, stage=5, project_dir="runs/train")
-    except Exception:
+    if any(Path(f"runs/train/stage_{i}/results.txt").exists() for i in range(1, 6)):
         try:
-            from train import update_metrics_and_lr
+            from scripts.train import update_metrics_and_lr
             update_metrics_and_lr(Path("runs/train/stage_5"), reports_dir, stage=5, project_dir="runs/train")
         except Exception:
-            pass
+            try:
+                from train import update_metrics_and_lr
+                update_metrics_and_lr(Path("runs/train/stage_5"), reports_dir, stage=5, project_dir="runs/train")
+            except Exception:
+                pass
     metrics_csv = os.path.join(reports_dir, "metrics_history.csv")
 
     # Sanitize any legacy ValLoss offset in metrics_history.csv
