@@ -207,30 +207,35 @@ def check_stage_already_completed(stage: int, epochs: int, checkpoint_dir: str, 
     if not skip_existing:
         return False
 
-    target_ckpt = Path(checkpoint_dir) / f"checkpoint_{epochs}.pt"
+    cum_target = stage * 30 if stage > 0 else epochs
+    target_ckpt = Path(checkpoint_dir) / f"checkpoint_{cum_target}.pt"
+    target_ckpt_alt = Path(checkpoint_dir) / f"checkpoint_{epochs}.pt"
 
     # Sync from current experiment's Google Drive folder if available
     if drive_dir and os.path.exists(drive_dir):
-        drive_ckpt = Path(drive_dir) / "checkpoints" / f"checkpoint_{epochs}.pt"
+        for candidate_name in [f"checkpoint_{cum_target}.pt", f"checkpoint_{epochs}.pt"]:
+            drive_ckpt = Path(drive_dir) / "checkpoints" / candidate_name
+            if not target_ckpt.exists() and drive_ckpt.exists() and drive_ckpt.stat().st_size > 0:
+                os.makedirs(checkpoint_dir, exist_ok=True)
+                shutil.copy(drive_ckpt, target_ckpt)
+                print(f"[CACHE] Restored stage {stage} checkpoint from Google Drive: {drive_ckpt}")
+                break
+
         drive_best = Path(drive_dir) / "checkpoints" / "best_model.pt"
         drive_metrics = Path(drive_dir) / "reports" / "metrics_history.csv"
 
-        if not target_ckpt.exists() and drive_ckpt.exists() and drive_ckpt.stat().st_size > 0:
-            os.makedirs(checkpoint_dir, exist_ok=True)
-            shutil.copy(drive_ckpt, target_ckpt)
-            if drive_best.exists() and not (Path(checkpoint_dir) / "best_model.pt").exists():
-                shutil.copy(drive_best, Path(checkpoint_dir) / "best_model.pt")
-            print(f"[CACHE] Restored stage {stage} checkpoint from Google Drive: {drive_ckpt}")
-
+        if drive_best.exists() and not (Path(checkpoint_dir) / "best_model.pt").exists():
+            shutil.copy(drive_best, Path(checkpoint_dir) / "best_model.pt")
         if drive_metrics.exists() and not (Path(reports_dir) / "metrics_history.csv").exists():
             os.makedirs(reports_dir, exist_ok=True)
             shutil.copy(drive_metrics, Path(reports_dir) / "metrics_history.csv")
 
-    if target_ckpt.exists() and target_ckpt.stat().st_size > 0:
+    if (target_ckpt.exists() and target_ckpt.stat().st_size > 0) or (target_ckpt_alt.exists() and target_ckpt_alt.stat().st_size > 0):
+        actual_ckpt = target_ckpt if target_ckpt.exists() else target_ckpt_alt
         if not (Path(checkpoint_dir) / "best_model.pt").exists():
-            shutil.copy(target_ckpt, Path(checkpoint_dir) / "best_model.pt")
+            shutil.copy(actual_ckpt, Path(checkpoint_dir) / "best_model.pt")
         print("=" * 70)
-        print(f"✨ [SKIP] Stage {stage} result already exists ({target_ckpt.name})!")
+        print(f"✨ [SKIP] Stage {stage} result already exists ({actual_ckpt.name})!")
         print(f"⏩ Skipping Stage {stage} training and proceeding directly to the next step.")
         print("=" * 70)
         return True
@@ -259,7 +264,7 @@ def resolve_exp_dir(project: str, name: str) -> Path:
     return exp_dir
 
 
-def archive_and_verify_checkpoints(exp_dir: Path, stage: int, epochs: int, checkpoint_dir: str, reports_dir: str):
+def archive_and_verify_checkpoints(exp_dir: Path, stage: int, cumulative_epochs: int, checkpoint_dir: str, reports_dir: str):
     """Verify and archive checkpoint_xx.pt and best_model.pt."""
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(reports_dir, exist_ok=True)
@@ -270,7 +275,6 @@ def archive_and_verify_checkpoints(exp_dir: Path, stage: int, epochs: int, check
 
     # Checkpoint Validation & Recovery requirement
     if not last_pt.exists() and not best_pt.exists():
-        # Fallback search across all recent weights in runs/
         cands = sorted(Path("runs").glob("**/weights/*.pt"), key=os.path.getmtime, reverse=True)
         for c in cands:
             if c.exists() and c.stat().st_size > 0:
@@ -290,9 +294,8 @@ def archive_and_verify_checkpoints(exp_dir: Path, stage: int, epochs: int, check
                 print(f"Found .pt files in [{search_root}]: {[str(x) for x in found_pts]}")
         sys.exit(1)
 
-    target_stage_ckpt = Path(checkpoint_dir) / f"checkpoint_{epochs}.pt"
-    target_stage_30 = Path(checkpoint_dir) / f"checkpoint_{stage * 30}.pt"
-    target_stage_legacy = Path(checkpoint_dir) / f"checkpoint_{stage * 10}.pt"
+    target_stage_ckpt = Path(checkpoint_dir) / f"checkpoint_{cumulative_epochs}.pt"
+    target_stage_30 = Path(checkpoint_dir) / f"checkpoint_{stage * 30}.pt" if stage > 0 else target_stage_ckpt
     target_best_ckpt = Path(checkpoint_dir) / "best_model.pt"
     target_last_ckpt = Path(checkpoint_dir) / "last.pt"
 
@@ -300,8 +303,6 @@ def archive_and_verify_checkpoints(exp_dir: Path, stage: int, epochs: int, check
         shutil.copy(last_pt, target_stage_ckpt)
         if not target_stage_30.exists():
             shutil.copy(last_pt, target_stage_30)
-        if not target_stage_legacy.exists():
-            shutil.copy(last_pt, target_stage_legacy)
         shutil.copy(last_pt, target_last_ckpt)
         print(f"[SUCCESS] Archived stage checkpoint: {target_stage_ckpt}")
 
@@ -330,12 +331,26 @@ def archive_and_verify_checkpoints(exp_dir: Path, stage: int, epochs: int, check
 def main():
     opt = parse_opt()
 
+    # Calculate stage training epochs and cumulative progress
+    stage_idx = opt.stage
+    if stage_idx > 0:
+        cumulative_target_epochs = stage_idx * 30
+        stage_training_epochs = 30  # Fixed 30 epochs per stage for 150-epoch total plan
+        start_epoch_label = (stage_idx - 1) * 30 + 1
+        end_epoch_label = stage_idx * 30
+    else:
+        stage_training_epochs = opt.epochs
+        cumulative_target_epochs = opt.epochs
+        start_epoch_label = 1
+        end_epoch_label = opt.epochs
+
     # 1. Check if this stage was already completed before running
-    if check_stage_already_completed(opt.stage, opt.epochs, opt.checkpoint_dir, opt.reports_dir, opt.drive_dir, opt.skip_existing):
+    if check_stage_already_completed(opt.stage, cumulative_target_epochs, opt.checkpoint_dir, opt.reports_dir, opt.drive_dir, opt.skip_existing):
         return
 
     print("=" * 70)
     print(f"🚀 YOLO_ChestXray Training Pipeline - Stage {opt.stage} (Plan 1 v4.0 Compliant)")
+    print(f"📊 Stage Scope: Training {stage_training_epochs} Epochs (Cumulative: Epochs {start_epoch_label} ~ {end_epoch_label} / 150)")
     print(f"🔒 Fixed Seed: {SEED} | Non-Interactive Mode: WANDB Disabled")
     print("=" * 70)
 
@@ -357,7 +372,7 @@ def main():
                     break
 
     # Diagnostic logging of checkpoint and parameters
-    print(f"[DIAGNOSTIC] Stage {opt.stage} Target Epochs: {opt.epochs}")
+    print(f"[DIAGNOSTIC] Stage {opt.stage} Execution Epochs: {stage_training_epochs} (Cumulative Target: {cumulative_target_epochs})")
     print(f"[DIAGNOSTIC] Checkpoint input: {weights_path}")
     if os.path.exists(weights_path):
         size_mb = os.path.getsize(weights_path) / (1024 * 1024)
@@ -373,7 +388,7 @@ def main():
     else:
         print(f"[WARNING] Checkpoint file {weights_path} not found locally before launch!")
 
-    # Build robust execution command for stage-wise training
+    # Build robust execution command for stage-wise training (exactly 30 epochs per stage)
     cmd = [
         sys.executable,
         "train.py",
@@ -381,7 +396,7 @@ def main():
         f"--cfg {opt.cfg}",
         f"--data {opt.data}",
         f"--hyp {opt.hyp}",
-        f"--epochs {opt.epochs}",
+        f"--epochs {stage_training_epochs}",
         f"--batch-size {opt.batch_size}",
         f"--img-size {' '.join(map(str, opt.img_size))}",
         f"--project {opt.project}",
@@ -424,7 +439,7 @@ def main():
     full_cmd = " ".join(cmd)
     print("=" * 70)
     print(f"[BREAKPOINT 1/4] Environment verification & patch applied successfully.")
-    print(f"[BREAKPOINT 2/4] Executing training process via subprocess:")
+    print(f"[BREAKPOINT 2/4] Executing Stage {opt.stage} training ({stage_training_epochs} epochs):")
     print(f"[EXEC CMD] {full_cmd}")
     print("=" * 70)
 
@@ -437,8 +452,27 @@ def main():
         universal_newlines=True,
         bufsize=1
     )
-    for line in proc.stdout:
-        print(line, end="", flush=True)
+    last_was_progress = False
+    for raw_line in proc.stdout:
+        line = raw_line.rstrip("\r\n")
+        if not line:
+            continue
+        # Detect tqdm progress lines (batch iterations or validation progress)
+        is_progress = ("%|" in line) or ("it/s]" in line) or ("s/it]" in line)
+        if is_progress:
+            # Overwrite line in-place cleanly without spamming lines downwards
+            sys.stdout.write(f"\r\033[K{line}")
+            sys.stdout.flush()
+            last_was_progress = True
+        else:
+            if last_was_progress:
+                sys.stdout.write("\n")
+                last_was_progress = False
+            print(line, flush=True)
+
+    if last_was_progress:
+        sys.stdout.write("\n")
+
     proc.wait()
     exit_code = proc.returncode
     log_gpu_usage(opt.reports_dir)
@@ -449,12 +483,11 @@ def main():
 
     if exit_code == 0:
         exp_dir = resolve_exp_dir(opt.project, opt.name)
-        archive_and_verify_checkpoints(exp_dir, opt.stage, opt.epochs, opt.checkpoint_dir, opt.reports_dir)
+        archive_and_verify_checkpoints(exp_dir, opt.stage, cumulative_target_epochs, opt.checkpoint_dir, opt.reports_dir)
         update_metrics_and_lr(exp_dir, opt.reports_dir)
         print(f"[BREAKPOINT 4/4] [SUCCESS] Stage {opt.stage} training finished and verified successfully.")
     else:
         print(f"[ERROR] Training process exited with non-zero return code: {exit_code}")
-        # Directory diagnostic dump
         print("\n--- Diagnostic Directory Listing ---")
         for p in [Path("checkpoints"), Path("runs/train"), Path(opt.project)]:
             if p.exists():
