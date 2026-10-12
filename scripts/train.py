@@ -210,6 +210,13 @@ def update_metrics_and_lr(exp_dir: Path, reports_dir: str, stage: int = 1, proje
 
     if all_stage_records:
         df_new = pd.DataFrame(all_stage_records).drop_duplicates(subset=['Epoch'], keep='last').sort_values(by='Epoch')
+        if history_file.exists():
+            try:
+                df_existing = pd.read_csv(history_file)
+                if not df_existing.empty and 'Epoch' in df_existing.columns:
+                    df_new = pd.concat([df_existing, df_new], ignore_index=True).drop_duplicates(subset=['Epoch'], keep='last').sort_values(by='Epoch')
+            except Exception as e:
+                print(f"[WARN] Failed to merge existing history_file: {e}")
         df_new.to_csv(history_file, index=False)
         print(f"[SUCCESS] Updated metrics history from 100% real empirical results: {history_file} ({len(df_new)} real epochs recorded, max epoch={df_new['Epoch'].max()})")
     elif history_file.exists():

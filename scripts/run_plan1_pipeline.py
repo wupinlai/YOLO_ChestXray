@@ -77,6 +77,7 @@ def parse_args():
     parser.add_argument("--reports-dir", default="reports", help="reports output folder")
     parser.add_argument("--best-model", default="checkpoints/best_model.pt", help="best model weights")
     parser.add_argument("--conf-thres", type=float, default=0.05, help="confidence threshold for post-processing evaluation")
+    parser.add_argument("--drive-dir", default="", help="Google Drive experiment sync directory")
     return parser.parse_args()
 
 
@@ -173,14 +174,14 @@ def run_plan1_postprocessing(args):
 
     # 2. Progression Charts (Refresh metrics_history.csv from available training stages if present)
     print("[INFO] [2/8] Generating 4 Comparison Charts & Summary (150 Epochs aggregation)...")
-    if any(Path(f"runs/train/stage_{i}/results.txt").exists() for i in range(1, 6)):
+    if any(Path(f"runs/train/stage_{i}/results.txt").exists() for i in range(1, 6)) or (args.drive_dir and os.path.exists(args.drive_dir)):
         try:
             from scripts.train import update_metrics_and_lr
-            update_metrics_and_lr(Path("runs/train/stage_5"), reports_dir, stage=5, project_dir="runs/train")
+            update_metrics_and_lr(Path("runs/train/stage_5"), reports_dir, stage=5, project_dir="runs/train", drive_dir=args.drive_dir)
         except Exception:
             try:
                 from train import update_metrics_and_lr
-                update_metrics_and_lr(Path("runs/train/stage_5"), reports_dir, stage=5, project_dir="runs/train")
+                update_metrics_and_lr(Path("runs/train/stage_5"), reports_dir, stage=5, project_dir="runs/train", drive_dir=args.drive_dir)
             except Exception:
                 pass
     metrics_csv = os.path.join(reports_dir, "metrics_history.csv")

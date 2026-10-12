@@ -120,7 +120,7 @@ def main():
     cmd = [
         sys.executable,
         "test.py",
-        f"--weights {opt.weights}",
+        f"--weights {resolved_weights}",
         f"--data {opt.data}",
         f"--batch-size {opt.batch_size}",
         f"--img {opt.img_size}",
