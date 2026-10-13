@@ -20,6 +20,8 @@
 | **Exp 2: 驗證對照組** (High-Res) | **`1024 x 1024`** | `150 Epochs` | `8` | 1024 高解析度 + 5 階段 Resume | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/wupinlai/YOLO_ChestXray/blob/main/notebooks/YOLO_ChestXray_Colab_Exp2_1024x1024.ipynb) | 高解析度驗證組，專攻微小病灶偵測 |
 | **Exp 3: 醫學專項最佳化組** (Medical) | **`1024 x 1024`** | `150 Epochs` | `8` | **CLAHE 自適應直方圖 + `hyp.medical.yaml` (`lr0:0.005`, `lrf:0.01`, 灰階增強)** | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/wupinlai/YOLO_ChestXray/blob/main/notebooks/YOLO_ChestXray_Colab_Exp3_Medical_Optimized.ipynb) | 醫學專項最佳化組，針對胸部 X 光特性深度調優 |
 
+> 📖 **完整三組實驗深度比較分析報告**：請參閱 [**EXPERIMENT_COMPARISON_REPORT.md**](experiments/EXPERIMENT_COMPARISON_REPORT.md) *(含 Mermaid 實驗流程圖、控制變數全景分析、150 輪實測指標對比曲線與 10 組樣本 Inference 橫向視覺化診斷)*
+
 ---
 
 ## 🩺 Dataset Information
