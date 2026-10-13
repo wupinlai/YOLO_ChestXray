@@ -193,7 +193,8 @@ graph TD
 
 以下為根據三組實驗實測記錄的 `metrics_history.csv`（完整 150 輪）所繪製之四象限量化收斂對照圖：
 
-![三組實驗收斂曲線全景對比](file:///d:/AI%20Project/研究方法/YOLO_ChestXray/experiments/experiment_comparison_curves.png)
+![三組實驗收斂曲線全景對比](https://raw.githubusercontent.com/wupinlai/YOLO_ChestXray/main/experiments/experiment_comparison_curves.png)
+*(若無法載入網路圖片，可查看本機相對路徑：[`./experiment_comparison_curves.png`](./experiment_comparison_curves.png))*
 
 * **圖 (A) mAP@0.50 演進**：Exp 3（綠線）自 Stage 2（第 40 輪）起展現驚人的爬升動能，在 Stage 5 達到頂點 `0.3415`；Exp 1（藍線）與 Exp 2（橘線）則受限於特徵干擾，於 `0.10 ~ 0.14` 區間震盪停滯。
 * **圖 (B) mAP@0.5:0.95 演進**：Exp 3 高達 `0.1850`，代表邊界框不僅分類正確，在 IoU $\ge 0.75$ 的高精度嚴苛條件下仍具備極高貼合度。
@@ -236,7 +237,8 @@ graph TD
 
 以下為由系統自動產出之橫向推論比對矩陣（`experiments/inference_comparison_grid.jpg`）：
 
-![Inference 效果橫向比對圖](file:///d:/AI%20Project/研究方法/YOLO_ChestXray/experiments/inference_comparison_grid.jpg)
+![Inference 效果橫向比對圖](https://raw.githubusercontent.com/wupinlai/YOLO_ChestXray/main/experiments/inference_comparison_grid.jpg)
+*(若無法載入網路圖片，可查看本機相對路徑：[`./inference_comparison_grid.jpg`](./inference_comparison_grid.jpg))*
 
 ---
 
