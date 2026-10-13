@@ -142,6 +142,20 @@ def main():
     if exit_code == 0:
         exp_dir = Path(opt.project) / opt.name
         archive_validation_artifacts(exp_dir, opt.reports_dir)
+        if opt.drive_dir and os.path.exists(opt.drive_dir):
+            try:
+                os.makedirs(Path(opt.drive_dir) / "reports", exist_ok=True)
+                for p in list(Path(opt.reports_dir).glob("*.png")) + list(Path(opt.reports_dir).glob("*.csv")):
+                    shutil.copy(p, Path(opt.drive_dir) / "reports" / p.name)
+                val_labels = exp_dir / "labels"
+                if val_labels.exists():
+                    drive_val_labels = Path(opt.drive_dir) / "logs" / opt.name / "labels"
+                    os.makedirs(drive_val_labels, exist_ok=True)
+                    for lf in val_labels.glob("*.txt"):
+                        shutil.copy(lf, drive_val_labels / lf.name)
+                print(f"☁️ [DRIVE AUTO-SYNC] Validation artifacts and logs synced to {opt.drive_dir}")
+            except Exception as e:
+                print(f"[DRIVE SYNC WARNING] Failed to sync validation: {e}")
         print(f"[SUCCESS] Validation completed. Deliverables archived to {opt.reports_dir}")
     else:
         print(f"[ERROR] Validation failed with exit code: {exit_code}")

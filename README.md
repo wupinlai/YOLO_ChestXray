@@ -108,27 +108,27 @@ names:
 
 ## 🚀 Training Strategy & Execution
 
-To safeguard against Colab timeouts and session disconnections, training is partitioned into **10-epoch incremental stages** with full checkpointing and Google Drive synchronization.
+To safeguard against Colab timeouts and session disconnections, training across all experiment groups is partitioned into **5 stages of 30 epochs each (Total 150 Epochs)** with full checkpointing and Google Drive synchronization.
 
-### 5-Stage Schedule
+### 5-Stage Schedule (150 Epochs)
 
 | Stage | Epochs | Checkpoint Saved | Resumed From |
 |:---|:---|:---|:---|
-| **Stage 1** | 1 ~ 10 | `checkpoint_10.pt` | Pretrained YOLOv7 weights |
-| **Stage 2** | 11 ~ 20 | `checkpoint_20.pt` | `checkpoint_10.pt` |
-| **Stage 3** | 21 ~ 30 | `checkpoint_30.pt` | `checkpoint_20.pt` |
-| **Stage 4** | 31 ~ 40 | `checkpoint_40.pt` | `checkpoint_30.pt` |
-| **Stage 5** | 41 ~ 50 | `checkpoint_50.pt` | `checkpoint_40.pt` |
+| **Stage 1** | 1 ~ 30 | `checkpoint_30.pt` | Pretrained YOLOv7 weights (`yolov7.pt`) |
+| **Stage 2** | 31 ~ 60 | `checkpoint_60.pt` | `checkpoint_30.pt` (`--resume`) |
+| **Stage 3** | 61 ~ 90 | `checkpoint_90.pt` | `checkpoint_60.pt` (`--resume`) |
+| **Stage 4** | 91 ~ 120 | `checkpoint_120.pt` | `checkpoint_90.pt` (`--resume`) |
+| **Stage 5** | 121 ~ 150 | `checkpoint_150.pt` | `checkpoint_120.pt` (`--resume`) |
 
 ### Resuming Training
 ```bash
-python train.py --resume runs/train/exp/weights/last.pt
+python scripts/train.py --resume checkpoints/checkpoint_30.pt --stage 2 --epochs 60 --name stage_2
 ```
 
 ### Validation & Metrics Collection
-Run evaluation after each stage:
+Run evaluation after each stage or on the final best model:
 ```bash
-python test.py --data configs/chestxray.yaml --weights checkpoints/checkpoint_10.pt
+python scripts/validate.py --weights checkpoints/best_model.pt --data configs/chestxray.yaml --name val_results
 ```
 
 Outputs generated:

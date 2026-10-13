@@ -17,7 +17,9 @@ datasets/chestxray8/val/labels/*
 
 # Weights and Checkpoints (archived to Google Drive and GitHub Releases)
 checkpoints/*.pt
-!checkpoints/.gitkeep
+experiments/**/checkpoints/*.pt
+*.pt
+!**/checkpoints/.gitkeep
 runs/
 
 # Reports and temporary outputs

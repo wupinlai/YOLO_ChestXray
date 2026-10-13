@@ -10,8 +10,8 @@
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **輸入影像** | `img-size` (Pixels) | `640 x 640` | `1024 x 1024` | **`1024 x 1024`** | 高解析度減少特徵下採樣損失，保留微小結節與細微血管紋理 |
 | **批次大小** | `batch-size` (Train/Val) | `16 / 32` | `8 / 16` | **`8 / 16`** | 1024 解析度下預防 GPU VRAM OOM，保障訓練穩定性 |
-| **總訓練輪次** | Total Epochs | 150 輪 (累加式) | 150 輪 (5 階段 `--resume`) | **150 輪 (5 階段 `--resume`)** | 保持週期相同，消除輪次差異帶來的干擾 |
-| **階段排程** | Stages / Epoch Schedule | 10 ➔ 20 ➔ 30 ➔ 40 ➔ 50 | 30 ➔ 60 ➔ 90 ➔ 120 ➔ 150 | **30 ➔ 60 ➔ 90 ➔ 120 ➔ 150** | 每個階段固定 30 輪，耗時均等，支援斷點接續 |
+| **總訓練輪次** | Total Epochs | 150 輪 (5 階段 `--resume`) | 150 輪 (5 階段 `--resume`) | **150 輪 (5 階段 `--resume`)** | 保持週期相同，消除輪次差異帶來的干擾 |
+| **階段排程** | Stages / Epoch Schedule | 30 ➔ 60 ➔ 90 ➔ 120 ➔ 150 | 30 ➔ 60 ➔ 90 ➔ 120 ➔ 150 | **30 ➔ 60 ➔ 90 ➔ 120 ➔ 150** | 每個階段固定 30 輪，耗時均等，支援斷點接續 |
 | **前處理增強** | CLAHE `clipLimit` | ❌ 未啟用 (None) | ❌ 未啟用 (None) | **`2.0`** | 限制局部直方圖對比度上限，避免過度放大肺泡高頻雜訊 |
 | | CLAHE `tileGridSize` | ❌ 未啟用 (None) | ❌ 未啟用 (None) | **`(8, 8)`** | 局部 8x8 區塊均衡化，消除縱隔腔與骨骼之高動態壓迫 |
 | **優化器** | Optimizer Type | SGD (`torch.optim.SGD`) | SGD (`torch.optim.SGD`) | **SGD (`torch.optim.SGD`)** | 具備更佳泛化性能與平滑損失地貌特徵 |
@@ -57,9 +57,18 @@
 * **模型結構定義檔**：`cfg/training/yolov7.yaml`
 * **資料集定義檔**：`configs/chestxray.yaml`
 * **Google Drive 路徑**：`/content/drive/MyDrive/YOLO_ChestXray`
-* **執行命令**：
+* **階段排程命令**：
   ```bash
-  python scripts/train.py --weights yolov7.pt --hyp data/hyp.scratch.p5.yaml --epochs 50 --batch-size 16 --img-size 640 640
+  # Stage 1 (0 ~ 30 Epochs)
+  python scripts/train.py --weights yolov7.pt --stage 1 --epochs 30 --img-size 640 640 --batch-size 16 --name stage_1
+  # Stage 2 (30 ~ 60 Epochs)
+  python scripts/train.py --resume checkpoints/checkpoint_30.pt --stage 2 --epochs 60 --img-size 640 640 --batch-size 16 --name stage_2
+  # Stage 3 (60 ~ 90 Epochs)
+  python scripts/train.py --resume checkpoints/checkpoint_60.pt --stage 3 --epochs 90 --img-size 640 640 --batch-size 16 --name stage_3
+  # Stage 4 (90 ~ 120 Epochs)
+  python scripts/train.py --resume checkpoints/checkpoint_90.pt --stage 4 --epochs 120 --img-size 640 640 --batch-size 16 --name stage_4
+  # Stage 5 (120 ~ 150 Epochs)
+  python scripts/train.py --resume checkpoints/checkpoint_120.pt --stage 5 --epochs 150 --img-size 640 640 --batch-size 16 --name stage_5
   ```
 
 ---
@@ -122,6 +131,6 @@
    - `reports/metrics_history.csv`（完整 150 輪訓練與驗證指標歷史紀錄）
    - `reports/top5_detections.jpg`、`reports/worst_iou_cases.jpg`、`reports/fp_gallery.jpg`、`reports/fn_gallery.jpg`
 3. **發布壓縮包 (GitHub Release Assets)**：
-   - Exp 1: `Release_50_Plan1_v4.0_assets.zip`
+   - Exp 1: `Release_Exp1_Baseline_640x640_150epochs.zip` (舊版相容: `Release_50_Plan1_v4.0_assets.zip`)
    - Exp 2: `Release_Exp2_1024x1024_150epochs.zip`
    - Exp 3: `Release_Exp3_Medical_1024x1024_150epochs.zip`

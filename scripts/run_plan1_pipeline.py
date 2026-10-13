@@ -212,6 +212,18 @@ def run_plan1_postprocessing(args):
     preds = load_predictions("runs/test/val_exp/labels", args.val_img_dir, class_names, conf_thres=args.conf_thres)
     if not preds:
         preds = load_predictions("runs/test/val_results/labels", args.val_img_dir, class_names, conf_thres=args.conf_thres)
+    if not preds and args.drive_dir:
+        drive_labels_cands = [
+            Path(args.drive_dir) / "logs" / "val_results" / "labels",
+            Path(args.drive_dir) / "logs" / "val_exp" / "labels",
+            Path(args.drive_dir) / "val_labels"
+        ]
+        for dlc in drive_labels_cands:
+            if dlc.exists():
+                preds = load_predictions(str(dlc), args.val_img_dir, class_names, conf_thres=args.conf_thres)
+                if preds:
+                    print(f"[INFO] Loaded {len(preds)} validation predictions from Google Drive: {dlc}")
+                    break
 
     # 5. Statistical & Root Cause Analysis
     print("[INFO] [3/8] Running IoU, Confidence, Root Cause, and Error Analysis...")
